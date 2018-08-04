@@ -1,5 +1,5 @@
 let http = require('http');
-let logger = require('./modules/node-logger');
+let logger = require('./modules/perfect-logger');
 
 function time() {
     return "time";
