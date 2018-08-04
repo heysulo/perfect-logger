@@ -120,6 +120,15 @@ exports.log = function (message, alias, databaseObj = { writeToDatabase : false 
     writeLogLine(message, alias, databaseObj);
 };
 
+//*************************************************************************************************
+/**
+ * Set timezone when using the built-in time and date functions
+ * @param timeZone
+ */
+exports.setTimeZone = function (timeZone) {
+    userTimeZone = timeZone;
+};
+
 // Module Initializations *************************************************************************
 getTime = getTimeFunction;
 getDate = getDateFunction;
