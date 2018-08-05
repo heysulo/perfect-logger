@@ -9,7 +9,7 @@ npm i perfect-logger
 In Node.JS
 ```javascript
 // Load the perfect-logger module
-let logger = require('./perfect-logger');
+let logger = require('perfect-logger');
 
 // Configure Settings
 logger.setLogDirectory("./ApplicationLogs");
@@ -33,7 +33,7 @@ Sample Log File
 ```
 ******************************************************************************************
 **
-** NodeJS Logging System Logging System
+** NodeJS Logging System
 ** Application Version          : 1.0
 ** Node-Logger Version          : 1.0.0.0
 ** Application Start Time (UTC) : 04:12:21 2018/08/05
@@ -53,7 +53,7 @@ Sample Log File
 ```
 # Configurations
 ## Time and Date
-You can use your own time and dat functions or you can use the inbuilt time and date functions which will be used automatically. Your custom functions should return a string. To ensure the log file quality, make sure that your functions return the time and date string at a constant length.
+You can use your own time and date functions or you can use the inbuilt time and date functions which is default. Your custom functions should return a string. To ensure the log file quality, make sure that your functions return the time and date string at a constant length.
 
 How to use your own time and date functions
 ```javascript

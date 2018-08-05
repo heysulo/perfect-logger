@@ -1,6 +1,6 @@
 const fileSystem = require('fs');
 const loggerData = {
-    version: "1.0.0.0"
+    version: "1.1.0"
 };
 
 // Standard Settings ******************************************************************************
@@ -23,7 +23,7 @@ let statusCodeAliases = {
     debug : { code: "DEBG", writeToDatabase: false },
 };
 let applicationInfo = {
-    name: "NodeJS Logging System",
+    name: "Perfect Logger",
     banner: "Copyright 2018 Team whileLOOP",
     version: "1.0"
 };
@@ -120,7 +120,7 @@ function logSwitch() {
     `**\n` +
     `** ${applicationInfo.name} Logging System\n` +
     `** Application Version          : ${applicationInfo.version}\n` +
-    `** Node-Logger Version          : ${loggerData.version}\n` +
+    `** Perfect-Logger Version       : ${loggerData.version}\n` +
     `** Application Start Time (UTC) : ${applicationInfo.startTime}\n` +
     `**\n` +
     `** ${applicationInfo.banner}\n` +
