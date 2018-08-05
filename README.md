@@ -1,5 +1,5 @@
 # perfect-logger
-The Perfect-Logger library exported as Node.js modules.
+The Perfect-Logger library exported as Node.js modules. With Perfect-Logger you can improve your application's logs
 ## Installation
 Using npm:
 ```
