@@ -1,13 +1,15 @@
 {
   "name": "perfect-logger",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A NodeJS module that can be used for logging purposes",
   "main": "",
   "scripts": {
     "test": "node test.js"
   },
   "keywords": [
-    "logger"
+    "logger", "nodejs", "logging", "logs", "log", "console.log",
+    "tools", "module", "perfect-logger", "output", "terminal",
+    "whileloop"
   ],
   "author": "Sulochana Kodituwakku <sulochana.456@live.com>",
   "license": "ISC"
