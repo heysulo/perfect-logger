@@ -1,6 +1,6 @@
 {
   "name": "perfect-logger",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "A NodeJS module that can be used for logging purposes",
   "main": "",
   "scripts": {
@@ -14,8 +14,17 @@
     "url": "https://github.com/heysulo/perfect-logger.git"
   },
   "keywords": [
-    "logger", "nodejs", "logging", "logs", "log", "console.log",
-    "tools", "module", "perfect-logger", "output", "terminal",
+    "logger",
+    "nodejs",
+    "logging",
+    "logs",
+    "log",
+    "console.log",
+    "tools",
+    "module",
+    "perfect-logger",
+    "output",
+    "terminal",
     "whileloop"
   ],
   "author": "Sulochana Kodituwakku <sulochana.456@live.com>",
