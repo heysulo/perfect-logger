@@ -140,5 +140,22 @@ Output
 ```
 2018/08/05 | 10:23:01 | FLAG | RESTART Flag received
 ```
+# Database Callback
+You can atatch a function which can be fired upon log event which can be used to write events to the database. By default `WARN` and `CRIT` events will fire the database callback. Attaching a database object as the 3rd parameter will always fire the database callback.
+
+```javascript
+function databaseCallback(dbObject){
+    database.query('INSERT INTO `log` VALUES(?,?,?,?,?)',
+            [dbObject.date, dbObject.time, dbObject.code, dbObject.message, JSON.stringyfy(dbObject.details)],
+            function (err,payload) {
+                if(err){
+                    console.log("ERROR!");
+                }
+            });
+}
+
+logger.setDatabaseCallback(databaseCallback);
+```
+
 # Help and Support
 For any queries drop an email to sulochana.456@live.com
