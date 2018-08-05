@@ -129,7 +129,7 @@ This should be done before calling the `logger.initialize()` function.
 /**
  * @param alias - Name of the status code
  * @param code - Status Code
- * @param writeToDatabaseValue - Write to database (NOT IMPLEMENTED YET)
+ * @param writeToDatabaseValue - Write to database by default
  */
 logger.addStatusCode("flag", "FLAG", false);
 

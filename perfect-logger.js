@@ -16,6 +16,7 @@ let logNumber = 0;
 let maxLogSize = 10000;
 let currentLogFile;
 let previousLogFile = false;
+let databaseCallback = undefined;
 let statusCodeAliases = {
     info : { code: "INFO", writeToDatabase: false },
     warn : { code: "WARN", writeToDatabase: true },
@@ -29,16 +30,16 @@ let applicationInfo = {
 };
 
 // Internal Functions *****************************************************************************
-function getTimeFunction() {
-    let now = new Date(new Date().toLocaleString('en-US', { timeZone: userTimeZone }));
+function getTimeFunction(UTC = false) {
+    let now = new Date(new Date().toLocaleString('en-US', { timeZone: UTC ? 'UTC' : userTimeZone }));
     return ('0' + now.getHours()).substr(-2,2) + ':' +
         ('0' + now.getMinutes()).substr(-2,2) + ':' +
         ('0' + now.getSeconds()).substr(-2,2);
 }
 
 //*************************************************************************************************
-function getDateFunction() {
-    let now = new Date(new Date().toLocaleString('en-US', { timeZone: userTimeZone }));
+function getDateFunction(UTC = false) {
+    let now = new Date(new Date().toLocaleString('en-US', { timeZone: UTC ? 'UTC' : userTimeZone }));
     return now.getFullYear() + '/' +
         ('0' + (now.getMonth() + 1)).substr(-2,2) + '/' +
         ('0' + now.getDate()).substr(-2,2);
@@ -46,9 +47,12 @@ function getDateFunction() {
 
 //*************************************************************************************************
 function getStatusCodeToString(statusCode) {
-    let codeString = statusCodeAliases[statusCode].code;
+    let codeString = statusCodeAliases[statusCode];
     if (codeString === undefined){
-        codeString = statusCode
+        codeString = {
+            code: statusCode,
+            writeToDatabase: false
+        }
     }
 
     if (disableStatusCodePadding)
@@ -58,15 +62,18 @@ function getStatusCodeToString(statusCode) {
         updateStandardStatusCodeLength();
     }
 
-    codeString = codeString + " ".repeat(standardStatusCodeLength);
-    codeString = codeString.substring(0, standardStatusCodeLength);
+    codeString.code = codeString.code + " ".repeat(standardStatusCodeLength);
+    codeString.code = codeString.code.substring(0, standardStatusCodeLength);
 
     return codeString;
 }
 
 //*************************************************************************************************
-function writeLogLine(message, alias, databaseObj = { writeToDatabase : false }) {
-    let logMessage = `${getDate()} | ${getTime()} | ${getStatusCodeToString(alias)} | ${message}`;
+function writeLogLine(message, alias, databaseObj) {
+    let statusCode = getStatusCodeToString(alias);
+    let date = getDate();
+    let time = getTime();
+    let logMessage = `${date} | ${time} | ${statusCode.code} | ${message}`;
     console.log(logMessage);
 
     if (getLogSize() > maxLogSize)
@@ -79,6 +86,19 @@ function writeLogLine(message, alias, databaseObj = { writeToDatabase : false })
                 console.log(err);
         }
     });
+
+    if (databaseCallback !== undefined &&
+        (databaseObj || statusCode.writeToDatabase))
+    {
+        databaseCallback({
+            date: date,
+            time: time,
+            code: statusCode.code,
+            message: message,
+            details: databaseObj
+        });
+
+    }
 
 }
 //*************************************************************************************************
@@ -129,7 +149,7 @@ function logSwitch() {
     `**\n` +
     `** Log Number               : #${logNumber}\n` +
     `** Continuing from Log File : ${previousLogFile ? previousLogFile : 'None'}\n` +
-    `** Log Start Time (UTC)     : ${getTime()} ${getDate()}\n` +
+    `** Log Start Time (UTC)     : ${getTimeFunction(true)} ${getDateFunction(true)}\n` +
     `**\n` +
     `******************************************************************************************`;
 
@@ -165,7 +185,7 @@ exports.setStatusCodes = function (userStatusCodeObject) {
 exports.addStatusCode = function (alias, code, writeToDatabaseValue) {
     statusCodeAliases[alias] = { code: code, writeToDatabase: writeToDatabaseValue };
     standardStatusCodeLength = -1;
-    exports[alias] = function (message, databaseObj = { writeToDatabase : false }) {
+    exports[alias] = function (message, databaseObj) {
         writeLogLine(message, alias, databaseObj);
     }
 };
@@ -269,6 +289,18 @@ exports.setApplicationInfo = function (infoObject) {
 };
 
 //*************************************************************************************************
+/**
+ * Attach a function which will be fired with an object which can be used for db writing
+ * @param callback - Callback function
+ */
+exports.setDatabaseCallback = function (callback) {
+    databaseCallback = callback;
+};
+
+//*************************************************************************************************
+/**
+ * Initialize logger module
+ */
 exports.initialize = function () {
     if (!getTime)
         getTime = getTimeFunction;
@@ -278,11 +310,11 @@ exports.initialize = function () {
 
     // Dynamic function generation for each code
     Object.keys(statusCodeAliases).forEach(function (key) {
-        exports[key] = function (message, databaseObj = { writeToDatabase : false }) {
+        exports[key] = function (message, databaseObj) {
             writeLogLine(message, key, databaseObj);
         }
     });
 
-    applicationInfo.startTime = `${getTime()} ${getDate()}`;
+    applicationInfo.startTime = `${getTimeFunction(true)} ${getDateFunction(true)}`;
     logSwitch();
 };

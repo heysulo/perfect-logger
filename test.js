@@ -5,6 +5,10 @@ function time() {
     return "time";
 }
 
+function databaseCallback(data) {
+    console.log(data);
+}
+
 logger.addStatusCode("try", "TRY", false);
 logger.setTimeZone("Asia/Colombo");
 logger.setLogDirectory("./NodeLogs");
@@ -15,9 +19,11 @@ logger.setApplicationInfo({
     banner: "Copyright 2080 Team whileLOOP Incorporated",
     version: "1.0.0"
 });
+logger.setDatabaseCallback(databaseCallback);
 logger.initialize();
 logger.log("Starting Server", "info");
 logger.info("info");
+logger.info("info with dbObj", { info: "OK"});
 logger.warn("warn");
 logger.switchLogs();
 logger.crit("crit");
