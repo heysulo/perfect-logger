@@ -199,12 +199,10 @@ exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = tex
     if (Object.keys(textColors).indexOf(color) !== -1){
         color = textColors[color];
     } else if (Object.values(textColors).indexOf(color) !== -1){
-        console.log("FOUND", Object.values(textColors).indexOf(color));
         color = textColors[Object.keys(textColors)[Object.values(textColors).indexOf(color)]];
     }else{
         color = textColors.default;
     }
-    console.log("color", Object.keys(textColors).indexOf(color));
     statusCodeAliases[alias] = { code: code, writeToDatabase: writeToDatabaseValue, color: color };
     standardStatusCodeLength = -1;
     exports[alias] = function (message, databaseObj) {
