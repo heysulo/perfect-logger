@@ -9,7 +9,9 @@ function databaseCallback(data) {
     console.log(data);
 }
 
-logger.addStatusCode("try", "TRY", false);
+logger.addStatusCode("try", "TRY", false, "red");
+logger.addStatusCode("check", "CHK", false, logger.colors.magenta);
+logger.addStatusCode("wew", "WEW", false, "SUN");
 logger.setTimeZone("Asia/Colombo");
 logger.setLogDirectory("./NodeLogs");
 logger.setLogFileName("UCSCRES");
@@ -28,6 +30,8 @@ logger.warn("warn");
 logger.switchLogs();
 logger.crit("crit");
 logger.try("Helloooooooo");
+logger.check("Check");
+logger.wew("Check");
 
 let i = 0;
 
