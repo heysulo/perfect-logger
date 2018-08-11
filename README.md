@@ -1,13 +1,23 @@
 # perfect-logger
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fheysulo%2Fperfect-logger.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fheysulo%2Fperfect-logger?ref=badge_shield)
 
-Logging module for NodeJS applications
+The Perfect-Logger library exported as Node.js modules. With Perfect-Logger you can improve your application's logs
 
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fheysulo%2Fperfect-logger.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fheysulo%2Fperfect-logger?ref=badge_large)
 =======
-The Perfect-Logger library exported as Node.js modules. With Perfect-Logger you can improve your application's logs
+
+## Highlights
+
+- Easy to use
+- Configurable
+- Write log events to file
+- Automatic log switching to avoid huge log files
+- Custom log codes
+- Database callback support
+- Colored terminal output
+
 ## Installation
 Using npm:
 ```
@@ -130,16 +140,23 @@ This should be done before calling the `logger.initialize()` function.
  * @param alias - Name of the status code
  * @param code - Status Code
  * @param writeToDatabaseValue - Write to database by default
+ * @param color - Color of the text (Optional) Ex: logger.colors.red or "red"
  */
 logger.addStatusCode("flag", "FLAG", false);
+logger.addStatusCode("socketEvent", "SOCK", false, "red");
 
 // Usage
 logger.flag("RESTART Flag received");
+logger.socketEvent("Socket client connected");
 ```
 Output
 ```
 2018/08/05 | 10:23:01 | FLAG | RESTART Flag received
+2018/08/05 | 10:23:01 | SOCK | Socket client connected
 ```
+Available colors :
+`black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
+
 # Database Callback
 You can atatch a function which can be fired upon log event which can be used to write events to the database. By default `WARN` and `CRIT` events will fire the database callback. Attaching a database object as the 3rd parameter will always fire the database callback.
 
