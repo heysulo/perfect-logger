@@ -4,6 +4,18 @@ const loggerData = {
 };
 
 // Standard Settings ******************************************************************************
+const textColors = {
+    black: "\x1b[30m",
+    red: "\x1b[31m",
+    green: "\x1b[32m",
+    yellow: "\x1b[33m",
+    blue: "\x1b[34m",
+    magenta: "\x1b[35m",
+    cyan: "\x1b[36m",
+    white: "\x1b[37m",
+    default: ""
+};
+const restConsole = "\x1b[0m";
 let standardStatusCodeLength = -1;
 let disableStatusCodePadding = false;
 let userTimeZone = "UTC";
@@ -18,10 +30,10 @@ let currentLogFile;
 let previousLogFile = false;
 let databaseCallback = undefined;
 let statusCodeAliases = {
-    info : { code: "INFO", writeToDatabase: false },
-    warn : { code: "WARN", writeToDatabase: true },
-    crit : { code: "CRIT", writeToDatabase: true },
-    debug : { code: "DEBG", writeToDatabase: false },
+    info : { code: "INFO", writeToDatabase: false, color: textColors.default},
+    warn : { code: "WARN", writeToDatabase: true, color: textColors.yellow },
+    crit : { code: "CRIT", writeToDatabase: true, color: textColors.red },
+    debug : { code: "DEBG", writeToDatabase: false, color: textColors.cyan },
 };
 let applicationInfo = {
     name: "Perfect Logger",
@@ -74,7 +86,7 @@ function writeLogLine(message, alias, databaseObj) {
     let date = getDate();
     let time = getTime();
     let logMessage = `${date} | ${time} | ${statusCode.code} | ${message}`;
-    console.log(logMessage);
+    console.log(statusCode.color, logMessage, restConsole);
 
     if (getLogSize() > maxLogSize)
         logSwitch();
@@ -181,9 +193,19 @@ exports.setStatusCodes = function (userStatusCodeObject) {
  * @param alias - Name of the status code
  * @param code - Status Code
  * @param writeToDatabaseValue - Write to database
+ * @param color - Color of the text (Optional) Ex: logger.colors.red or "red"
  */
-exports.addStatusCode = function (alias, code, writeToDatabaseValue) {
-    statusCodeAliases[alias] = { code: code, writeToDatabase: writeToDatabaseValue };
+exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = textColors.default) {
+    if (Object.keys(textColors).indexOf(color) !== -1){
+        color = textColors[color];
+    } else if (Object.values(textColors).indexOf(color) !== -1){
+        console.log("FOUND", Object.values(textColors).indexOf(color));
+        color = textColors[Object.keys(textColors)[Object.values(textColors).indexOf(color)]];
+    }else{
+        color = textColors.default;
+    }
+    console.log("color", Object.keys(textColors).indexOf(color));
+    statusCodeAliases[alias] = { code: code, writeToDatabase: writeToDatabaseValue, color: color };
     standardStatusCodeLength = -1;
     exports[alias] = function (message, databaseObj) {
         writeLogLine(message, alias, databaseObj);
@@ -318,3 +340,9 @@ exports.initialize = function () {
     applicationInfo.startTime = `${getTimeFunction(true)} ${getDateFunction(true)}`;
     logSwitch();
 };
+
+//*************************************************************************************************
+/**
+ * Text Colors
+ */
+exports.colors = textColors;

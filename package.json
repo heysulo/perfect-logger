@@ -1,6 +1,6 @@
 {
   "name": "perfect-logger",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "A NodeJS module that can be used for logging purposes",
   "main": "",
   "scripts": {
@@ -25,7 +25,13 @@
     "perfect-logger",
     "output",
     "terminal",
-    "whileloop"
+    "whileloop",
+    "color-terminal",
+    "color",
+    "colour-terminal",
+    "colour",
+    "shell",
+    "xterm"
   ],
   "author": "Sulochana Kodituwakku <sulochana.456@live.com>",
   "license": "MIT"
