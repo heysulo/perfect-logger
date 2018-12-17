@@ -53,3 +53,4 @@ http.createServer(function (req, res) {
 }).listen(8080); //the server object listens on port 8080
 
 console.log(logger.getVirtualConsoleLog());
+console.log(logger.getLogFileName());
