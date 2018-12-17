@@ -1,6 +1,6 @@
 const fileSystem = require('fs');
 const loggerData = {
-    version: "1.1.0"
+    version: "1.4.1"
 };
 
 // Standard Settings ******************************************************************************
@@ -409,4 +409,12 @@ exports.setLiveText = function (text) {
     if (text){
         process.stdout.write(`${date} | ${time} | ${liveText.statusCode} | ${text}\r`);
     }
+};
+
+//*************************************************************************************************
+/***
+ * Gets the current log file name abnd path
+ */
+exports.getLogFileName = function () {
+    return currentLogFile;
 };
