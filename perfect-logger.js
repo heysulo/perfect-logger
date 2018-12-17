@@ -29,11 +29,14 @@ let maxLogSize = 10000;
 let currentLogFile;
 let previousLogFile = false;
 let databaseCallback = undefined;
+let regularCallback = undefined;
+let virtualConsoleLog = [];
+let liveText = {};
 let statusCodeAliases = {
-    info : { code: "INFO", writeToDatabase: false, color: textColors.default},
-    warn : { code: "WARN", writeToDatabase: true, color: textColors.yellow },
-    crit : { code: "CRIT", writeToDatabase: true, color: textColors.red },
-    debug : { code: "DEBG", writeToDatabase: false, color: textColors.cyan },
+    info : { code: "INFO", writeToDatabase: false, color: textColors.default, hidden: false},
+    warn : { code: "WARN", writeToDatabase: true, color: textColors.yellow, hidden: false },
+    crit : { code: "CRIT", writeToDatabase: true, color: textColors.red, hidden: false },
+    debug : { code: "DEBG", writeToDatabase: false, color: textColors.cyan, hidden: true },
 };
 let applicationInfo = {
     name: "Perfect Logger",
@@ -86,7 +89,9 @@ function writeLogLine(message, alias, databaseObj) {
     let date = getDate();
     let time = getTime();
     let logMessage = `${date} | ${time} | ${statusCode.code} | ${message}`;
-    console.log(statusCode.color, logMessage, restConsole);
+    if (!statusCode.hidden){
+        console.log(statusCode.color, logMessage, restConsole);
+    }
 
     if (getLogSize() > maxLogSize)
         logSwitch();
@@ -99,17 +104,27 @@ function writeLogLine(message, alias, databaseObj) {
         }
     });
 
+    const logObject = {
+        date: date,
+        time: time,
+        code: statusCode.code,
+        message: message,
+        details: databaseObj
+    };
+
     if (databaseCallback !== undefined &&
         (databaseObj || statusCode.writeToDatabase))
     {
-        databaseCallback({
-            date: date,
-            time: time,
-            code: statusCode.code,
-            message: message,
-            details: databaseObj
-        });
+        databaseCallback(logObject);
 
+    }
+
+    if (regularCallback !== undefined){
+        regularCallback(logObject);
+    }
+
+    if (!statusCode.hidden){
+        virtualConsoleLog.push(logObject);
     }
 
 }
@@ -194,8 +209,9 @@ exports.setStatusCodes = function (userStatusCodeObject) {
  * @param code - Status Code
  * @param writeToDatabaseValue - Write to database
  * @param color - Color of the text (Optional) Ex: logger.colors.red or "red"
+ * @param hidden - Write only to the log file and hide from other"
  */
-exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = textColors.default) {
+exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = textColors.default, hidden = false) {
     if (Object.keys(textColors).indexOf(color) !== -1){
         color = textColors[color];
     } else if (Object.values(textColors).indexOf(color) !== -1){
@@ -203,7 +219,7 @@ exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = tex
     }else{
         color = textColors.default;
     }
-    statusCodeAliases[alias] = { code: code, writeToDatabase: writeToDatabaseValue, color: color };
+    statusCodeAliases[alias] = { code: code, writeToDatabase: writeToDatabaseValue, color: color, hidden: hidden };
     standardStatusCodeLength = -1;
     exports[alias] = function (message, databaseObj) {
         writeLogLine(message, alias, databaseObj);
@@ -341,6 +357,56 @@ exports.initialize = function () {
 
 //*************************************************************************************************
 /**
+ * Attach a function which will be fired with an object which can be used as a callback for log
+ * events. This will be fired after the database callback
+ * @param callback - Callback function
+ */
+exports.setCallback = function(callback){
+    regularCallback = callback;
+};
+
+//*************************************************************************************************
+/***
+ * Gets the logs as an array.
+ * @returns {Array}
+ */
+exports.getVirtualConsoleLog = function () {
+    if (!liveText.message){
+        return virtualConsoleLog;
+    }else{
+        return virtualConsoleLog.concat(liveText);
+    }
+};
+
+//*************************************************************************************************
+/***
+ * Clears the logs stored
+ */
+exports.clearVirtualConsoleLog = function () {
+    virtualConsoleLog = [];
+};
+
+//*************************************************************************************************
+/**
  * Text Colors
  */
 exports.colors = textColors;
+
+//*************************************************************************************************
+/***
+ * Set a live event
+ * @param text
+ */
+exports.setLiveText = function (text) {
+    let date = getDate();
+    let time = getTime();
+    liveText = {
+        date: date,
+        time: time,
+        statusCode: 'LIVE ',
+        message: text
+    };
+    if (text){
+        process.stdout.write(`${date} | ${time} | ${liveText.statusCode} | ${text}\r`);
+    }
+};
