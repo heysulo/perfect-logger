@@ -63,3 +63,5 @@ http.createServer(function (req, res) {
 
 console.log(logger.getVirtualConsoleLog());
 console.log(logger.getLogFileName());
+logger.clearVirtualConsoleLog();
+logger.disbleVirtualLogs();

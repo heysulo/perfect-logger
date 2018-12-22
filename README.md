@@ -16,7 +16,9 @@ The Perfect-Logger library exported as Node.js modules. With Perfect-Logger you 
 - Automatic log switching to avoid huge log files
 - Custom log codes
 - Database callback support
+- Log evnt call back support
 - Colored terminal output
+- Store logs in memory (Virtual Logs)
 
 ## Installation
 Using npm:
@@ -93,7 +95,7 @@ logger.setTimeZone("Asia/Colombo");
 ```
 
 ## Logging to File
-By default this module will write all events to the log file. 
+By default this module will write all events to the log file.
 Configure where you want your log files to be written. Default location is `logs` folder in the current directory.
 ```javascript
 logger.setLogDirectory("./NodeLogs");
@@ -131,6 +133,31 @@ By setting a maximum log file size will allow you to switch to new log file when
 ```javascript
 logger.setMaximumLogSize(10000);
 ```
+You can write objects and strings to a file using `writeData` function. This will write the string or the object to the log file.
+````javascript
+logger.writeData({
+    test: 'sdadasdad',
+    dd: true,
+    sd: 9878798,
+    nk: 46.56456
+});
+logger.writeData("this is \n just \nto test \n the multileine\n thing");
+````
+Log file output
+````javascript
+2018/12/22 | 22:53:02 | DATA | [P2QKEVKR : (0/6)] {
+2018/12/22 | 22:53:02 | DATA | [P2QKEVKR : (1/6)]     "test": "sdadasdad",
+2018/12/22 | 22:53:02 | DATA | [P2QKEVKR : (2/6)]     "dd": true,
+2018/12/22 | 22:53:02 | DATA | [P2QKEVKR : (3/6)]     "sd": 9878798,
+2018/12/22 | 22:53:02 | DATA | [P2QKEVKR : (4/6)]     "nk": 46.56456
+2018/12/22 | 22:53:02 | DATA | [P2QKEVKR : (5/6)] }
+2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (0/5)] this is
+2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (1/5)]  just
+2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (2/5)] to test
+2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (3/5)]  the multileine
+2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (4/5)]  thing
+````
+A unique code will also be written to help identify the written object in asynchronous situations
 # Custom Log Codes
 By default `INFO`, `WARN`, `CRIT` and `DEBG` methods are available for logging. You can create your own logging codes.
 This should be done before calling the `logger.initialize()` function.
@@ -141,13 +168,16 @@ This should be done before calling the `logger.initialize()` function.
  * @param code - Status Code
  * @param writeToDatabaseValue - Write to database by default
  * @param color - Color of the text (Optional) Ex: logger.colors.red or "red"
+ * @param hidden - Write only to the log file and hide from other"
  */
 logger.addStatusCode("flag", "FLAG", false);
 logger.addStatusCode("socketEvent", "SOCK", false, "red");
+logger.addStatusCode("logOnly", "FLOG", false, "", true);
 
 // Usage
 logger.flag("RESTART Flag received");
 logger.socketEvent("Socket client connected");
+logger.logOnly("This will be written only into the log file");
 ```
 Output
 ```
@@ -173,6 +203,19 @@ function databaseCallback(dbObject){
 
 logger.setDatabaseCallback(databaseCallback);
 ```
+
+# Event Callback
+You can atatch a function which can be fired upon log event which can be used to handle any other functionalities which should be executed up on a log event.
+````javascript
+function callback(data) {
+    FacebookMessenger.Send(data.message);
+}
+
+logger.setCallback(callback);
+````
+
+# Virtual Logs
+By enabling virtual logs you can fetch all log events (which are not hidden) as an array where the newest is on the top. Use the `enableVirtualLogs()` function to enable virtual logs. You can obtain the logs using `getVirtualConsoleLog()` and clear the virtual logs using the `clearVirtualConsoleLog()`. **This feature is disabled by default.** For manually disabling this feature at runtime use `disbleVirtualLogs()` function.
 
 # Help and Support
 For any queries drop an email to sulochana.456@live.com
