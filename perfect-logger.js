@@ -1,6 +1,6 @@
 const fileSystem = require('fs');
 const loggerData = {
-    version: "1.4.1"
+    version: "0.0.0"
 };
 
 // Standard Settings ******************************************************************************
@@ -31,12 +31,14 @@ let previousLogFile = false;
 let databaseCallback = undefined;
 let regularCallback = undefined;
 let virtualConsoleLog = [];
+let enableVirtualConsolelogs = false
 let liveText = {};
 let statusCodeAliases = {
     info : { code: "INFO", writeToDatabase: false, color: textColors.default, hidden: false},
     warn : { code: "WARN", writeToDatabase: true, color: textColors.yellow, hidden: false },
     crit : { code: "CRIT", writeToDatabase: true, color: textColors.red, hidden: false },
     debug : { code: "DEBG", writeToDatabase: false, color: textColors.cyan, hidden: true },
+    data : { code: "DATA", writeToDatabase: false, color: textColors.default, hidden: true }
 };
 let applicationInfo = {
     name: "Perfect Logger",
@@ -123,8 +125,8 @@ function writeLogLine(message, alias, databaseObj) {
         regularCallback(logObject);
     }
 
-    if (!statusCode.hidden){
-        virtualConsoleLog.push(logObject);
+    if (enableVirtualConsolelogs && !statusCode.hidden){
+        virtualConsoleLog.unshift(logObject);
     }
 
 }
@@ -347,9 +349,12 @@ exports.initialize = function () {
     // Dynamic function generation for each code
     Object.keys(statusCodeAliases).forEach(function (key) {
         exports[key] = function (message, databaseObj) {
-            writeLogLine(message, key, databaseObj);
+            writeLogLine(message.replace('\n', '\\n'), key, databaseObj);
         }
     });
+
+    const packageJSON = JSON.parse(fileSystem.readFileSync('package.json', 'utf8'));
+    loggerData.version = packageJSON.version;
 
     applicationInfo.startTime = `${getTimeFunction(true)} ${getDateFunction(true)}`;
     logSwitch();
@@ -363,27 +368,6 @@ exports.initialize = function () {
  */
 exports.setCallback = function(callback){
     regularCallback = callback;
-};
-
-//*************************************************************************************************
-/***
- * Gets the logs as an array.
- * @returns {Array}
- */
-exports.getVirtualConsoleLog = function () {
-    if (!liveText.message){
-        return virtualConsoleLog;
-    }else{
-        return virtualConsoleLog.concat(liveText);
-    }
-};
-
-//*************************************************************************************************
-/***
- * Clears the logs stored
- */
-exports.clearVirtualConsoleLog = function () {
-    virtualConsoleLog = [];
 };
 
 //*************************************************************************************************
@@ -417,4 +401,53 @@ exports.setLiveText = function (text) {
  */
 exports.getLogFileName = function () {
     return currentLogFile;
+};
+
+//*************************************************************************************************
+/**
+ * Enable storing log events in memory. Hidden log evemts will not be included
+ */
+exports.enableVirtualLogs = function () {
+    enableVirtualConsolelogs = true;
+};
+
+//*************************************************************************************************
+/**
+ * Disable storing log events in memory.
+ */
+exports.disbleVirtualLogs = function () {
+    enableVirtualConsolelogs = false;
+};
+
+//*************************************************************************************************
+/***
+ * Gets the logs as an array.
+ * @returns {Array}
+ */
+exports.getVirtualConsoleLog = function () {
+    if (!liveText.message){
+        return virtualConsoleLog;
+    }else{
+        return virtualConsoleLog.concat(liveText);
+    }
+};
+
+//*************************************************************************************************
+/***
+ * Clears the logs stored in the memory
+ */
+exports.clearVirtualConsoleLog = function () {
+    virtualConsoleLog = [];
+};
+
+exports.writeData = function (object) {
+    let objectStr = object;
+    if (typeof(object) !== 'string'){
+        objectStr = JSON.stringify(object, null, 4)
+    }
+    const dataLines = objectStr.split('\n');
+    const uniqueIdentifier = Math.random().toString(36).substring(5).toUpperCase();
+    dataLines.forEach(function (line, index) {
+        writeLogLine(`[${uniqueIdentifier} : (${index + 1}/${dataLines.length})] ${line}`, 'data', {});
+    })
 };

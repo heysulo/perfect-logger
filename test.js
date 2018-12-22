@@ -10,7 +10,7 @@ function databaseCallback(data) {
 }
 
 function callback(data) {
-    console.log('ddd');
+    return
 }
 
 logger.addStatusCode("try", "TRY", false, "red");
@@ -28,6 +28,7 @@ logger.setApplicationInfo({
 });
 logger.setDatabaseCallback(databaseCallback);
 logger.setCallback(callback);
+logger.enableVirtualLogs();
 logger.initialize();
 logger.log("Starting Server", "info");
 logger.info("info");
@@ -39,6 +40,14 @@ logger.check("Check");
 logger.wew("Check");
 logger.debug('hey heye');
 logger.d2('hidden');
+logger.info("Helloooo \n multilline");
+logger.writeData({
+    test: 'sdadasdad',
+    dd: true,
+    sd: 9878798,
+    nk: 46.56456
+});
+logger.writeData("this is \n just \nto test \n the multileine\n thing");
 
 let i = 0;
 
