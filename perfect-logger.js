@@ -31,8 +31,9 @@ let previousLogFile = false;
 let databaseCallback = undefined;
 let regularCallback = undefined;
 let virtualConsoleLog = [];
-let enableVirtualConsolelogs = false
+let enableVirtualConsolelogs = false;
 let liveText = {};
+let maintainSingleFile = false;
 let statusCodeAliases = {
     info : { code: "INFO", writeToDatabase: false, color: textColors.default, hidden: false},
     warn : { code: "WARN", writeToDatabase: true, color: textColors.yellow, hidden: false },
@@ -162,7 +163,11 @@ function logSwitch() {
 
     previousLogFile = logFileNameSuffix ? `${logFileName}.${logFileNameSuffix}.log` : undefined;
     logFileNameSuffix = newLogFileNameSuffix;
-    currentLogFile = `${logsDirectory}/${logFileName}.${logFileNameSuffix}.log`;
+    if (maintainSingleFile){
+        currentLogFile = `${logsDirectory}/${logFileName}.log`;
+    }else{
+        currentLogFile = `${logsDirectory}/${logFileName}.${logFileNameSuffix}.log`;
+    }
 
     let logFileHeader = ``+
     `******************************************************************************************\n` +
@@ -450,4 +455,12 @@ exports.writeData = function (object) {
     dataLines.forEach(function (line, index) {
         writeLogLine(`[${uniqueIdentifier} : (${index + 1}/${dataLines.length})] ${line}`, 'data', {});
     })
+};
+
+//*************************************************************************************************
+/***
+ * Maintains a single log file without creating a file with a timestamp
+ */
+exports.maintainSingleLogFile = function () {
+    maintainSingleFile = true;
 };

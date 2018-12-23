@@ -104,6 +104,9 @@ The log file will be in following syntax.
 ```
 <LogFileName>.<TimeStamp>.log
 ```
+You can have a constant filename without appending the time stamp to the file name by calling `maintainSingleLogFile()` function before the `initialize()` function.
+**This will disable the log switching functionality**
+
 You can set the LogFileName with the following function
 ```javascript
 logger.setLogFileName("MyApplicationLog");
