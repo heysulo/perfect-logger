@@ -115,8 +115,7 @@ function writeLogLine(message, alias, databaseObj) {
         details: databaseObj
     };
 
-    if (databaseCallback !== undefined &&
-        (databaseObj || statusCode.writeToDatabase))
+    if (databaseCallback !== undefined && statusCode.writeToDatabase))
     {
         databaseCallback(logObject);
 
