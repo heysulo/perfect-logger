@@ -26,7 +26,7 @@
 
 const fileSystem = require('fs');
 const loggerData = {
-    version: "0.0.0"
+    version: "1.5.2"
 };
 
 // Standard Settings ******************************************************************************
@@ -387,9 +387,6 @@ exports.initialize = function () {
             writeLogLine(message.replace('\n', '\\n'), key, databaseObj);
         };
     });
-
-    const packageJSON = JSON.parse(fileSystem.readFileSync('package.json', 'utf8'));
-    loggerData.version = packageJSON.version;
 
     applicationInfo.startTime = `${getTimeFunction(true)} ${getDateFunction(true)}`;
     logSwitch();
