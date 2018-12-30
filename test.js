@@ -13,6 +13,10 @@ function callback(data) {
     return
 }
 
+function logSwitchCb(n, o ,p){
+    console.log(n, o, p)
+}
+
 logger.addStatusCode("try", "TRY", false, "red");
 logger.addStatusCode("check", "CHK", false, logger.colors.magenta);
 logger.addStatusCode("wew", "WEW", false, "SUN");
@@ -29,12 +33,14 @@ logger.setApplicationInfo({
 logger.setDatabaseCallback(databaseCallback);
 logger.setCallback(callback);
 logger.enableVirtualLogs();
+logger.setLogSwitchCallback(logSwitchCb);
 logger.initialize();
 logger.log("Starting Server", "info");
 logger.info("info");
 logger.info("info with dbObj", { info: "OK"});
 logger.warn("warn");
 logger.crit("crit");
+logger.switchLogs();
 logger.try("Helloooooooo");
 logger.check("Check");
 logger.wew("Check");
