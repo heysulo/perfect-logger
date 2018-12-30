@@ -133,6 +133,7 @@ Output Banner for above configuration
 ******************************************************************************************
 ```
 By setting a maximum log file size will allow you to switch to new log file when the file size limit is reached. This is usefull to split log files. You must provide the size limit in **Bytes**.
+Use the `switchLogs()` function to switch log files manually. You can get a full list of log files through the `getAllLogFileNames()` command.
 ```javascript
 logger.setMaximumLogSize(10000);
 ```
@@ -160,6 +161,7 @@ Log file output
 2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (3/5)]  the multileine
 2018/12/22 | 22:53:02 | DATA | [AS2B2BJ : (4/5)]  thing
 ````
+
 A unique code will also be written to help identify the written object in asynchronous situations
 # Custom Log Codes
 By default `INFO`, `WARN`, `CRIT` and `DEBG` methods are available for logging. You can create your own logging codes.

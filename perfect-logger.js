@@ -32,6 +32,7 @@ let databaseCallback = undefined;
 let regularCallback = undefined;
 let logSwitchCallback = undefined;
 let virtualConsoleLog = [];
+let allLogFileName = [];
 let enableVirtualConsolelogs = false;
 let liveText = {};
 let maintainSingleFile = false;
@@ -187,6 +188,7 @@ function logSwitch() {
     `**\n` +
     `******************************************************************************************`;
 
+    allLogFileName.push(currentLogFile);
     writeToLogFile(logFileHeader);
     if (logSwitchCallback)
         logSwitchCallback(currentLogFile, logNumber, previousLogFile ? previousLogFile : null)
@@ -467,10 +469,19 @@ exports.maintainSingleLogFile = function () {
     maintainSingleFile = true;
 };
 
-/***
+/*************************************************************************************************
  * Attach a callback which will be fired upon a log switch.
  * @param callback Callback with the signature Callback(newLogFileName, logNumber, previousLogFileName)
  */
 exports.setLogSwitchCallback = function (callback) {
     logSwitchCallback = callback
+};
+
+//*************************************************************************************************
+/**
+ * Returns all the log file names as an array
+ * @returns {Array} all the log file names as an array
+ */
+exports.getAllLogFileNames = function () {
+    return allLogFileName
 };

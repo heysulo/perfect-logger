@@ -71,3 +71,4 @@ console.log(logger.getVirtualConsoleLog());
 console.log(logger.getLogFileName());
 logger.clearVirtualConsoleLog();
 logger.disbleVirtualLogs();
+console.log(logger.getAllLogFileNames());
