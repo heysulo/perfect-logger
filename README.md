@@ -217,6 +217,16 @@ function callback(data) {
 logger.setCallback(callback);
 ````
 
+# Log Switch Callback
+You can attach a function which will be fired upon a log switch is being made. This functions should accept 3 parameters. New log file name, log switch event number and the previous log file name.
+```Javascript
+function logSwitchCb(newFileName, logEventName, previousLogFileName){
+    console.log(newFileName, logEventName, previousLogFileName);
+}
+
+logger.setLogSwitchCallback(logSwitchCb);
+```
+
 # Virtual Logs
 By enabling virtual logs you can fetch all log events (which are not hidden) as an array where the newest is on the top. Use the `enableVirtualLogs()` function to enable virtual logs. You can obtain the logs using `getVirtualConsoleLog()` and clear the virtual logs using the `clearVirtualConsoleLog()`. **This feature is disabled by default.** For manually disabling this feature at runtime use `disbleVirtualLogs()` function.
 
