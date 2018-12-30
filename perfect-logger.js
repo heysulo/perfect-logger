@@ -1,6 +1,32 @@
+/**
+ * Perfect Logger
+ * MIT License
+ * Copyright (c) 2018 Sulochana Kodituwakku
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * */
+
+/* jshint -W080 */
+
 const fileSystem = require('fs');
 const loggerData = {
-    version: "0.0.0"
+    version: "1.5.2"
 };
 
 // Standard Settings ******************************************************************************
@@ -32,6 +58,7 @@ let databaseCallback = undefined;
 let regularCallback = undefined;
 let logSwitchCallback = undefined;
 let virtualConsoleLog = [];
+let allLogFileName = [];
 let enableVirtualConsolelogs = false;
 let liveText = {};
 let maintainSingleFile = false;
@@ -71,7 +98,7 @@ function getStatusCodeToString(statusCode) {
         codeString = {
             code: statusCode,
             writeToDatabase: false
-        }
+        };
     }
 
     if (disableStatusCodePadding)
@@ -187,9 +214,10 @@ function logSwitch() {
     `**\n` +
     `******************************************************************************************`;
 
+    allLogFileName.push(currentLogFile);
     writeToLogFile(logFileHeader);
     if (logSwitchCallback)
-        logSwitchCallback(currentLogFile, logNumber, previousLogFile ? previousLogFile : null)
+        logSwitchCallback(currentLogFile, logNumber, previousLogFile ? previousLogFile : null);
 }
 
 //*************************************************************************************************
@@ -232,7 +260,7 @@ exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = tex
     standardStatusCodeLength = -1;
     exports[alias] = function (message, databaseObj) {
         writeLogLine(message, alias, databaseObj);
-    }
+    };
 };
 
 //*************************************************************************************************
@@ -357,11 +385,8 @@ exports.initialize = function () {
     Object.keys(statusCodeAliases).forEach(function (key) {
         exports[key] = function (message, databaseObj) {
             writeLogLine(message.replace('\n', '\\n'), key, databaseObj);
-        }
+        };
     });
-
-    const packageJSON = JSON.parse(fileSystem.readFileSync('package.json', 'utf8'));
-    loggerData.version = packageJSON.version;
 
     applicationInfo.startTime = `${getTimeFunction(true)} ${getDateFunction(true)}`;
     logSwitch();
@@ -450,13 +475,13 @@ exports.clearVirtualConsoleLog = function () {
 exports.writeData = function (object) {
     let objectStr = object;
     if (typeof(object) !== 'string'){
-        objectStr = JSON.stringify(object, null, 4)
+        objectStr = JSON.stringify(object, null, 4);
     }
     const dataLines = objectStr.split('\n');
     const uniqueIdentifier = Math.random().toString(36).substring(5).toUpperCase();
     dataLines.forEach(function (line, index) {
         writeLogLine(`[${uniqueIdentifier} : (${index + 1}/${dataLines.length})] ${line}`, 'data', {});
-    })
+    });
 };
 
 //*************************************************************************************************
@@ -467,10 +492,19 @@ exports.maintainSingleLogFile = function () {
     maintainSingleFile = true;
 };
 
-/***
+/*************************************************************************************************
  * Attach a callback which will be fired upon a log switch.
  * @param callback Callback with the signature Callback(newLogFileName, logNumber, previousLogFileName)
  */
 exports.setLogSwitchCallback = function (callback) {
-    logSwitchCallback = callback
+    logSwitchCallback = callback;
+};
+
+//*************************************************************************************************
+/**
+ * Returns all the log file names as an array
+ * @returns {Array} all the log file names as an array
+ */
+exports.getAllLogFileNames = function () {
+    return allLogFileName;
 };
