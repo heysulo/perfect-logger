@@ -1,3 +1,4 @@
+/* jshint -W080 */
 const fileSystem = require('fs');
 const loggerData = {
     version: "0.0.0"
@@ -72,7 +73,7 @@ function getStatusCodeToString(statusCode) {
         codeString = {
             code: statusCode,
             writeToDatabase: false
-        }
+        };
     }
 
     if (disableStatusCodePadding)
@@ -191,7 +192,7 @@ function logSwitch() {
     allLogFileName.push(currentLogFile);
     writeToLogFile(logFileHeader);
     if (logSwitchCallback)
-        logSwitchCallback(currentLogFile, logNumber, previousLogFile ? previousLogFile : null)
+        logSwitchCallback(currentLogFile, logNumber, previousLogFile ? previousLogFile : null);
 }
 
 //*************************************************************************************************
@@ -234,7 +235,7 @@ exports.addStatusCode = function (alias, code, writeToDatabaseValue, color = tex
     standardStatusCodeLength = -1;
     exports[alias] = function (message, databaseObj) {
         writeLogLine(message, alias, databaseObj);
-    }
+    };
 };
 
 //*************************************************************************************************
@@ -359,7 +360,7 @@ exports.initialize = function () {
     Object.keys(statusCodeAliases).forEach(function (key) {
         exports[key] = function (message, databaseObj) {
             writeLogLine(message.replace('\n', '\\n'), key, databaseObj);
-        }
+        };
     });
 
     const packageJSON = JSON.parse(fileSystem.readFileSync('package.json', 'utf8'));
@@ -452,13 +453,13 @@ exports.clearVirtualConsoleLog = function () {
 exports.writeData = function (object) {
     let objectStr = object;
     if (typeof(object) !== 'string'){
-        objectStr = JSON.stringify(object, null, 4)
+        objectStr = JSON.stringify(object, null, 4);
     }
     const dataLines = objectStr.split('\n');
     const uniqueIdentifier = Math.random().toString(36).substring(5).toUpperCase();
     dataLines.forEach(function (line, index) {
         writeLogLine(`[${uniqueIdentifier} : (${index + 1}/${dataLines.length})] ${line}`, 'data', {});
-    })
+    });
 };
 
 //*************************************************************************************************
@@ -474,7 +475,7 @@ exports.maintainSingleLogFile = function () {
  * @param callback Callback with the signature Callback(newLogFileName, logNumber, previousLogFileName)
  */
 exports.setLogSwitchCallback = function (callback) {
-    logSwitchCallback = callback
+    logSwitchCallback = callback;
 };
 
 //*************************************************************************************************
@@ -483,5 +484,5 @@ exports.setLogSwitchCallback = function (callback) {
  * @returns {Array} all the log file names as an array
  */
 exports.getAllLogFileNames = function () {
-    return allLogFileName
+    return allLogFileName;
 };
