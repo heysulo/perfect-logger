@@ -124,7 +124,7 @@ function writeLogLine(message, alias, databaseObj) {
         console.log(statusCode.color, logMessage, restConsole);
     }
 
-    if (getLogSize() > maxLogSize)
+    if (getLogSize() > maxLogSize && !maintainSingleFile)
         logSwitch();
 
     fileSystem.appendFile(currentLogFile,
@@ -188,8 +188,8 @@ function logSwitch() {
     if (previousLogFile)
         writeToLogFile(`Continuing to ${logFileName}.${newLogFileNameSuffix}.log`);
 
-    previousLogFile = logFileNameSuffix ? `${logFileName}.${logFileNameSuffix}.log` : undefined;
     logFileNameSuffix = newLogFileNameSuffix;
+    previousLogFile = logFileNameSuffix ? `${logFileName}.${logFileNameSuffix}.log` : undefined;
     if (maintainSingleFile){
         currentLogFile = `${logsDirectory}/${logFileName}.log`;
     }else{

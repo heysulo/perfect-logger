@@ -34,6 +34,7 @@ logger.setDatabaseCallback(databaseCallback);
 logger.setCallback(callback);
 logger.enableVirtualLogs();
 logger.setLogSwitchCallback(logSwitchCb);
+logger.maintainSingleLogFile();
 logger.initialize();
 logger.log("Starting Server", "info");
 logger.info("info");
@@ -60,8 +61,10 @@ let i = 0;
 
 //create a server object:
 http.createServer(function (req, res) {
-    for(i = 0; i < 10000; i++){
-        logger.setLiveText(`Logline ${i}`);
+    for(i = 0; i < 1000; i++){
+        logger.info(`Logline ${i}`);
+        if (i%250 === 0)
+            logger.switchLogs()
     }
     res.write('Hello World!'); //write a response to the client
     res.end(); //end the response
