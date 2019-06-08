@@ -143,14 +143,33 @@ function writeLogLine(message, alias, databaseObj) {
         details: databaseObj
     };
 
+
+
     if (databaseCallback !== undefined && statusCode.writeToDatabase)
     {
-        databaseCallback(logObject);
+        if (!writeLogLine.dbCallbackRecursionGuard)
+        {
+            writeLogLine.dbCallbackRecursionGuard = true;
+            databaseCallback(logObject);
+            writeLogLine.dbCallbackRecursionGuard = false;
+        }
+        else {
+            console.warn("WARNING: Recursion guard prevented callback: databaseCallback");
+        }
 
     }
 
     if (regularCallback !== undefined){
-        regularCallback(logObject);
+        if (!writeLogLine.callbackRecursionGuard)
+        {
+            writeLogLine.callbackRecursionGuard = true;
+            regularCallback(logObject);
+            writeLogLine.callbackRecursionGuard = false;
+        }
+        else {
+            console.warn("WARNING: Recursion guard prevented callback: regularCallback");
+        }
+
     }
 
     if (enableVirtualConsolelogs && !statusCode.hidden){

@@ -6,11 +6,14 @@ function time() {
 }
 
 function databaseCallback(data) {
-    return
+    logger.crit("Ceeeeeeeeeeeeeeeeeeeeeeeeb");
 }
 
 function callback(data) {
-    return
+    if (data.code !== 'CHK'){
+        return;
+    }
+    logger.info("Ceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb");
 }
 
 function logSwitchCb(n, o ,p){
@@ -22,7 +25,7 @@ logger.addStatusCode("check", "CHK", false, logger.colors.magenta);
 logger.addStatusCode("wew", "WEW", false, "SUN");
 logger.addStatusCode("d2", "DBG2", false, "SUN", true);
 logger.setTimeZone("Asia/Colombo");
-logger.setLogDirectory("./NodeLogs");
+logger.setLogDirectory("/home/sulochana/Documents/perfect-logger/NodeLogs");
 logger.setLogFileName("UCSCRES");
 logger.setMaximumLogSize(100000);
 logger.setApplicationInfo({
@@ -60,15 +63,15 @@ let i = 0;
 
 
 //create a server object:
-http.createServer(function (req, res) {
-    for(i = 0; i < 1000; i++){
-        logger.info(`Logline ${i}`);
-        if (i%250 === 0)
-            logger.switchLogs()
-    }
-    res.write('Hello World!'); //write a response to the client
-    res.end(); //end the response
-}).listen(8080); //the server object listens on port 8080
+// http.createServer(function (req, res) {
+//     for(i = 0; i < 1000; i++){
+//         logger.info(`Logline ${i}`);
+//         if (i%250 === 0)
+//             logger.switchLogs()
+//     }
+//     res.write('Hello World!'); //write a response to the client
+//     res.end(); //end the response
+// }).listen(8080); //the server object listens on port 8080
 
 console.log(logger.getVirtualConsoleLog());
 console.log(logger.getLogFileName());
