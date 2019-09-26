@@ -61,6 +61,7 @@ let virtualConsoleLog = [];
 let allLogFileName = [];
 let enableVirtualConsolelogs = false;
 let liveText = {};
+let consoleLog = true;
 let maintainSingleFile = false;
 let statusCodeAliases = {
     info : { code: "INFO", writeToDatabase: false, color: textColors.default, hidden: false},
@@ -120,7 +121,7 @@ function writeLogLine(message, alias, databaseObj) {
     let date = getDate();
     let time = getTime();
     let logMessage = `${date} | ${time} | ${statusCode.code} | ${message}`;
-    if (!statusCode.hidden){
+    if (consoleLog && !statusCode.hidden){
         console.log(statusCode.color, logMessage, restConsole);
     }
 
@@ -526,4 +527,11 @@ exports.setLogSwitchCallback = function (callback) {
  */
 exports.getAllLogFileNames = function () {
     return allLogFileName;
+};
+//*************************************************************************************************
+/**
+ * Disable console log, everytime it writes on file
+ */
+exports.disableConsoleLog = function () {
+    consoleLog = false;
 };
