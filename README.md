@@ -229,6 +229,14 @@ function logSwitchCb(newFileName, logEventName, previousLogFileName){
 logger.setLogSwitchCallback(logSwitchCb);
 ```
 
+# Disable Console Logs
+Disable logs in terminal every time the logger writes the log in file.
+````javascript
+logger.disableConsoleLog();
+````
+
+
+
 # Virtual Logs
 By enabling virtual logs you can fetch all log events (which are not hidden) as an array where the newest is on the top. Use the `enableVirtualLogs()` function to enable virtual logs. You can obtain the logs using `getVirtualConsoleLog()` and clear the virtual logs using the `clearVirtualConsoleLog()`. **This feature is disabled by default.** For manually disabling this feature at runtime use `disbleVirtualLogs()` function.
 
