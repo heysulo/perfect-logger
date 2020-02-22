@@ -4,7 +4,7 @@
   "description": "A customizable logger that can be used with NodeJS application for terminal logging purposes",
   "main": "",
   "scripts": {
-    "test": "node test.js"
+    "test": "node Example.js"
   },
   "engines": {
     "node": ">=4.0.0"
