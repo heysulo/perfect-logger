@@ -46,7 +46,7 @@ function updateLockDataFile() {
 //*********************************************************************************************************************
 function isPreviousLogFileExists() {
     try {
-        fs.accessSync(`${logDirectory}/${moduleName}.log`, 'rw');
+        fs.accessSync(`${logDirectory}/${moduleName}.log`, fs.constants.R_OK | fs.constants.W_OK);
         return true;
     } catch (e) {
         return false;
@@ -197,7 +197,7 @@ exports.init = (name, options = {}) => {
 
     if (options.logDirectory) {
         try {
-            fs.accessSync(options.logDirectory, 'rw');
+            fs.accessSync(options.logDirectory, fs.constants.R_OK | fs.constants.W_OK);
         } catch (e) {
             fs.mkdirSync(options.logDirectory);
         }
