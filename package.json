@@ -1,6 +1,6 @@
 {
   "name": "perfect-logger",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A customizable logger that can be used with NodeJS application for terminal logging purposes",
   "main": "",
   "scripts": {
