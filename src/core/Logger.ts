@@ -63,7 +63,8 @@ export class Logger {
             error,
         };
 
-        if (Object.keys(entry.context!).length === 0) {
+        // Safely check if the context object is empty and remove it if so.
+        if (entry.context && Object.keys(entry.context).length === 0) {
             delete entry.context;
         }
 
