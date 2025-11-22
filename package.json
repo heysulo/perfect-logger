@@ -1,13 +1,29 @@
 {
   "name": "perfect-logger",
-  "version": "2.1.0",
-  "description": "A customizable logger that can be used with NodeJS application for terminal logging purposes",
-  "main": "",
+  "version": "3.0.0-alpha.0",
+  "description": "A zero-dependency, isomorphic logger for Node.js and Browsers with plugin support.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node Example.js"
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint 'src/**/*.{js,ts}'",
+    "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
+    "prepublishOnly": "npm run build",
+    "release": "standard-version",
+    "release:alpha": "standard-version --prerelease alpha",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major"
   },
   "engines": {
-    "node": ">=4.0.0"
+    "node": ">=14.0.0"
   },
   "repository": {
     "type": "git",
@@ -15,24 +31,25 @@
   },
   "keywords": [
     "logger",
-    "nodejs",
     "logging",
-    "logs",
-    "log",
-    "console.log",
-    "tools",
-    "module",
-    "perfect-logger",
-    "output",
-    "terminal",
-    "whileloop",
-    "color-terminal",
-    "color",
-    "colour-terminal",
-    "colour",
-    "shell",
-    "xterm"
+    "typescript",
+    "isomorphic",
+    "universal",
+    "frontend",
+    "backend",
+    "zero-dependency"
   ],
   "author": "Sulochana Kodituwakku <sulochana.456@live.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "eslint": "^8.38.0",
+    "jest": "^29.5.0",
+    "standard-version": "^9.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  }
 }

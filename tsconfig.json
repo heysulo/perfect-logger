@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "ES2019",                  /* Compatible with Node 14+ and modern browsers */
+    "module": "CommonJS",                /* Standard output for NPM packages */
+    "lib": ["ES2019", "DOM"],            /* Include DOM types (window, console) and ES features */
+    "declaration": true,                 /* Generate .d.ts files so users get autocomplete */
+    "outDir": "./dist",                  /* Output compiled JS to dist/ folder */
+    "rootDir": "./src",                  /* Source files are in src/ */
+
+    /* Strictness */
+    "strict": true,                      /* Enable all strict type-checking options */
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+
+    /* Interop */
+    "esModuleInterop": true,             /* Allow default imports from CommonJS modules */
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
