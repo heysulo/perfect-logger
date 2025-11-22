@@ -1,6 +1,8 @@
-import { LoggerConfig, LogEntry } from './types';
+import { LoggerConfig, LogEntry, Appender } from './types';
 import { LogLevel } from '../constants';
 import { Logger } from './Logger';
+import { ConsoleAppender } from '../appenders/ConsoleAppender';
+import { FileAppender } from '../appenders/FileAppender';
 
 /**
  * The singleton LogManager class.
@@ -23,6 +25,40 @@ export class LogManager {
             LogManager.instance = new LogManager();
         }
         return LogManager.instance;
+    }
+
+    /**
+     * A convenience method to quickly configure the logger for a typical Node.js backend.
+     * Includes a ConsoleAppender and a FileAppender with sensible defaults.
+     * @param config Overrides for the default backend configuration.
+     */
+    public static simpleBackendConfig(config: Partial<LoggerConfig> = {}): void {
+        const defaultConfig: LoggerConfig = {
+            minLevel: LogLevel.INFO,
+            appenders: [
+                new ConsoleAppender(),
+                new FileAppender({
+                    minLevel: LogLevel.DEBUG,
+                    logDirectory: 'logs',
+                }),
+            ],
+        };
+        LogManager.getInstance().configure({ ...defaultConfig, ...config });
+    }
+
+    /**
+     * A convenience method to quickly configure the logger for a typical frontend.
+     * Includes a ConsoleAppender with sensible defaults.
+     * @param config Overrides for the default backend configuration.
+     */
+    public static simpleFrontendConfig(config: Partial<LoggerConfig> = {}): void {
+        const defaultConfig: LoggerConfig = {
+            minLevel: LogLevel.INFO,
+            appenders: [
+                new ConsoleAppender()
+            ],
+        };
+        LogManager.getInstance().configure({ ...defaultConfig, ...config });
     }
 
     /**
