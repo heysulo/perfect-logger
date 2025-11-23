@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.0.0](https://github.com/heysulo/perfect-logger/compare/v3.0.0-alpha.4...v3.0.0) (2025-11-23)
+
+
+### Features
+
+* **CallbackAppender:** Introduce Callback Appender ([39ec960](https://github.com/heysulo/perfect-logger/commit/39ec9603b920ac62f20f99be359b371414c64e66))
+
+
+### Bug Fixes
+
+* Include all exports ([a184c1b](https://github.com/heysulo/perfect-logger/commit/a184c1b662a0faf579fcfd0c78776f1148e3aa38))
+
 ## [3.0.0-alpha.4](https://github.com/heysulo/perfect-logger/compare/v3.0.0-alpha.3...v3.0.0-alpha.4) (2025-11-23)
 
 
