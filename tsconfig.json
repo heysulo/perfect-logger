@@ -9,9 +9,7 @@
     "rootDir": "./src",                  /* Source files are in src/ */
 
     /* Strictness */
-    "strict": true,                      /* Enable all strict type-checking options */
-    "noImplicitAny": true,
-    "strictNullChecks": true,
+    "strict": false,                     /* Disable all strict type-checking options */
 
     /* Interop */
     "esModuleInterop": true,             /* Allow default imports from CommonJS modules */

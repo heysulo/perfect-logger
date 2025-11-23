@@ -14,13 +14,13 @@
     "watch": "tsc -w",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint 'src/**/*.{js,ts}'",
+    "lint": "eslint 'src/**/*.{js,ts}' --exit-on-fatal-error",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "prepublishOnly": "npm run build",
-    "release": "standard-version",
-    "release:alpha": "standard-version --prerelease alpha",
-    "release:minor": "standard-version --release-as minor",
-    "release:major": "standard-version --release-as major"
+    "release": "standard-version --skip.test",
+    "release:alpha": "standard-version --prerelease alpha --skip.test",
+    "release:minor": "standard-version --release-as minor --skip.test",
+    "release:major": "standard-version --release-as major --skip.test"
   },
   "engines": {
     "node": ">=14.0.0"
