@@ -3,6 +3,7 @@ import { Logger } from './core/Logger';
 import { LogLevel } from './constants';
 import { ConsoleAppender } from './appenders/ConsoleAppender';
 import { FileAppender, FileAppenderConfig } from './appenders/FileAppender';
+import { CallbackAppender, CallbackAppenderConfig, LogCallback } from './appenders/CallbackAppender';
 import { LoggerConfig, AppenderConfig, LogEntry } from './core/types';
 
 // Initialize the singleton LogManager
@@ -15,14 +16,18 @@ export {
     logManager,
     defaultLogger,
     Logger,
+    LogManager,
     LogLevel,
     ConsoleAppender,
     FileAppender,
+    CallbackAppender,
 };
 
 export type {
     LoggerConfig,
     AppenderConfig,
     FileAppenderConfig,
+    CallbackAppenderConfig,
+    LogCallback,
     LogEntry,
 };
