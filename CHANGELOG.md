@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.0.0-alpha.4](https://github.com/heysulo/perfect-logger/compare/v3.0.0-alpha.3...v3.0.0-alpha.4) (2025-11-23)
+
+
+### Features
+
+* **FileAppender:** Log Rotation ([1306319](https://github.com/heysulo/perfect-logger/commit/13063191db66570a0d301dfdaf6aedb4eaae32e5))
+* **LogManager:** Introduce simple configs ([88af14b](https://github.com/heysulo/perfect-logger/commit/88af14b32421ba810a93183e5a5e8ea8b5822060))
+
 ## [3.0.0-alpha.3](https://github.com/heysulo/perfect-logger/compare/v3.0.0-alpha.2...v3.0.0-alpha.3) (2025-11-22)
 
 
