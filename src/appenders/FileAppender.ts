@@ -14,7 +14,6 @@ let pathModule: typeof path | null = null;
 if (isNode()) {
     try {
         fsModule = require('fs');
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         fsPromises = require('fs').promises;
         pathModule = require('path');
     } catch (e) {
@@ -23,21 +22,33 @@ if (isNode()) {
 }
 
 const DEFAULT_FORMAT = '{date} | {time} | {level} | {namespace} | {message}';
+const DEFAULT_FILENAME = 'app.log';
 
 export interface FileAppenderConfig extends AppenderConfig {
     logDirectory?: string;
+    fileName?: string;
     format?: string;
+    rotation?: 'daily' | 'hourly';
+    maxSize?: number; // in bytes
+    maxFiles?: number;
 }
 
 export class FileAppender extends BaseAppender {
     private readonly logDirectory: string;
+    private readonly fileName: string;
     private readonly formatTemplate: string;
-    private readonly fileTimestamp: string;
+    private readonly rotation?: 'daily' | 'hourly';
+    private readonly maxSize: number | null;
+    private readonly maxFiles: number | null;
+
     private readonly dateFormatter: Intl.DateTimeFormat;
     private readonly timeFormatter: Intl.DateTimeFormat;
-    private readonly initializedFiles: Set<string>;
 
-    constructor(config: FileAppenderConfig) {
+    private currentFilePath: string;
+    private currentFileSize = 0;
+    private currentFileDateMarker: string | null = null;
+
+    constructor(config: FileAppenderConfig = {}) {
         super('FileAppender', config, { minLevel: LogLevel.INFO });
 
         if (!fsPromises || !fsModule || !pathModule || !process) {
@@ -45,38 +56,40 @@ export class FileAppender extends BaseAppender {
         }
 
         this.logDirectory = config.logDirectory || pathModule.join(process.cwd(), 'logs');
+        this.fileName = config.fileName || DEFAULT_FILENAME;
         this.formatTemplate = config.format || DEFAULT_FORMAT;
-        this.initializedFiles = new Set<string>();
+        
+        this.rotation = config.rotation;
+        this.maxSize = config.maxSize || null;
+        this.maxFiles = config.maxFiles || null;
 
-        // Create a single timestamp for the current application session.
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const day = now.getDate().toString().padStart(2, '0');
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const seconds = now.getSeconds().toString().padStart(2, '0');
-        this.fileTimestamp = `${year}${month}${day}${hours}${minutes}${seconds}`;
+        this.dateFormatter = new Intl.DateTimeFormat(undefined, {
+            year: 'numeric', month: '2-digit', day: '2-digit', timeZone: this.timezone,
+        });
+        this.timeFormatter = new Intl.DateTimeFormat(undefined, {
+            hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false, timeZone: this.timezone,
+        });
 
-        // Ensure the log directory exists.
+        this.currentFilePath = this.getCurrentFilename();
+        this.initializeState();
+    }
+
+    private async initializeState(): Promise<void> {
         if (!fsModule.existsSync(this.logDirectory)) {
             fsModule.mkdirSync(this.logDirectory, { recursive: true });
         }
+        
+        this.currentFilePath = this.getCurrentFilename();
+        if (this.rotation) {
+            this.currentFileDateMarker = this.getDateMarker(new Date());
+        }
 
-        this.dateFormatter = new Intl.DateTimeFormat(undefined, {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            timeZone: this.timezone,
-        });
-
-        this.timeFormatter = new Intl.DateTimeFormat(undefined, {
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric',
-            hour12: false,
-            timeZone: this.timezone,
-        });
+        try {
+            const stats = await fsPromises.stat(this.currentFilePath);
+            this.currentFileSize = stats.size;
+        } catch (e) {
+            this.currentFileSize = 0;
+        }
     }
 
     public handle(entry: LogEntry): void {
@@ -84,56 +97,122 @@ export class FileAppender extends BaseAppender {
     }
 
     public async handleBatch(entries: LogEntry[]): Promise<void> {
-        if (!fsPromises || !pathModule) return;
+        if (!fsPromises) return;
 
-        const groupedByNamespace = entries.reduce((acc, entry) => {
-            if (!acc[entry.namespace]) {
-                acc[entry.namespace] = [];
-            }
-            acc[entry.namespace].push(entry);
-            return acc;
-        }, {} as Record<string, LogEntry[]>);
+        const logLines = entries
+            .filter(entry => entry.level >= this.minLevel)
+            .map(entry => this.formatLog(entry))
+            .join('\n');
+
+        if (!logLines) {
+            return;
+        }
+
+        const logBuffer = Buffer.from(logLines + '\n', 'utf-8');
 
         try {
-            for (const namespace of Object.keys(groupedByNamespace)) {
-                const filePath = pathModule.join(this.logDirectory, `${namespace}.log`);
-                let logLines = groupedByNamespace[namespace]
-                    .map(entry => this.formatLog(entry))
-                    .join('\n');
-
-                if (!this.initializedFiles.has(namespace)) {
-                    this.setupLogFile(namespace);
-                    logLines = `${this.fileTimestamp}\n${logLines}`;
-                    this.initializedFiles.add(namespace);
-                }
-
-                await fsPromises.appendFile(filePath, logLines + '\n');
-            }
+            await this.checkForRotation(logBuffer.length);
+            await fsPromises.appendFile(this.currentFilePath, logBuffer);
+            this.currentFileSize += logBuffer.length;
         } catch (e) {
             console.error('Error writing to log file:', e);
         }
     }
 
-    private setupLogFile(namespace: string): void {
-        if (!fsModule || !pathModule) return;
+    private async checkForRotation(bytesToAdd: number): Promise<void> {
+        const timeBoundaryReached = this.rotation && this.getDateMarker(new Date()) !== this.currentFileDateMarker;
+        const sizeBoundaryReached = this.maxSize !== null && (this.currentFileSize + bytesToAdd > this.maxSize);
 
-        const filePath = pathModule.join(this.logDirectory, `${namespace}.log`);
-        if (fsModule.existsSync(filePath)) {
-            try {
-                const content = fsModule.readFileSync(filePath, 'utf-8');
-                const firstLine = content.split('\n')[0].trim();
-                const timestampRegex = /^\d{14}$/;
+        if (timeBoundaryReached || sizeBoundaryReached) {
+            await this.rotate(timeBoundaryReached);
+        }
+    }
 
-                if (timestampRegex.test(firstLine)) {
-                    const archivePath = pathModule.join(this.logDirectory, `${namespace}-${firstLine}.log`);
-                    fsModule.renameSync(filePath, archivePath);
-                } else {
-                    fsModule.unlinkSync(filePath);
+    private async rotate(timeBased: boolean): Promise<void> {
+        if (!pathModule) return;
+        const oldPath = this.currentFilePath;
+
+        // Determine the new path for the current log file
+        if (timeBased) {
+            this.currentFileDateMarker = this.getDateMarker(new Date());
+        }
+        this.currentFilePath = this.getCurrentFilename();
+        this.currentFileSize = 0;
+
+        // Archive the old file
+        try {
+            // If file doesn't exist, no need to rotate it.
+            await fsPromises.access(oldPath);
+        } catch {
+            return;
+        }
+
+        const ext = pathModule.extname(this.fileName);
+        const baseName = pathModule.basename(this.fileName, ext);
+        const archives = await this.getArchives(baseName);
+
+        const archiveName = timeBased
+            ? `${baseName}-${this.getDateMarker(new Date(Date.now() - 1))}${ext}` // Use previous date marker
+            : `${baseName}.${archives.length + 1}${ext}`;
+        
+        const archivePath = pathModule.join(this.logDirectory, archiveName);
+
+        try {
+            await fsPromises.rename(oldPath, archivePath);
+        } catch (e) {
+            console.error(`Failed to rotate log file from ${oldPath} to ${archivePath}`, e);
+            return;
+        }
+
+        // Prune
+        await this.prune([archivePath, ...archives]);
+    }
+
+    private async prune(archives: string[]): Promise<void> {
+        if (!this.maxFiles || !pathModule) return;
+
+        const filesToProcess = archives.sort().reverse(); // Newest first
+        
+        // Delete oldest files
+        if (filesToProcess.length > this.maxFiles) {
+            const filesToDelete = filesToProcess.slice(this.maxFiles);
+            for (const file of filesToDelete) {
+                try {
+                    await fsPromises.unlink(file);
+                } catch (e) {
+                    console.error(`Failed to delete old log file: ${file}`, e);
                 }
-            } catch (e) {
-                console.error(`Failed to process existing log file ${filePath}. It will be overwritten.`, e);
             }
         }
+    }
+
+    private async getArchives(baseName: string): Promise<string[]> {
+        if (!pathModule) return [];
+        const files = await fsPromises.readdir(this.logDirectory);
+        const ext = pathModule.extname(this.fileName);
+        const regex = new RegExp(`^${baseName}[-.]`);
+        return files
+            .filter(f => f.startsWith(baseName) && f !== this.fileName && regex.test(f))
+            .map(f => pathModule.join(this.logDirectory, f));
+    }
+
+    private getCurrentFilename(): string {
+        if (!pathModule) return '';
+        if (this.rotation && this.maxSize === null) { // Purely time-based
+            return pathModule.join(this.logDirectory, `${pathModule.basename(this.fileName, pathModule.extname(this.fileName))}-${this.getDateMarker(new Date())}${pathModule.extname(this.fileName)}`);
+        }
+        return pathModule.join(this.logDirectory, this.fileName);
+    }
+
+    private getDateMarker(date: Date): string {
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        if (this.rotation === 'hourly') {
+            const hour = date.getHours().toString().padStart(2, '0');
+            return `${year}-${month}-${day}T${hour}`;
+        }
+        return `${year}-${month}-${day}`;
     }
 
     private formatLog(entry: LogEntry): string {
