@@ -80,7 +80,7 @@ Error: Task failed successfully
 
 -   **`LogManager`**: A static class that serves as the central point for configuration. You use it to register and configure your appenders.
 -   **`Logger`**: The object you use to write log messages. You get a `Logger` instance from the `LogManager`, usually with a specific namespace (e.g., a component or module name).
--   **`Appenders`**: These are the destinations for your log messages. `perfect-logger` comes with two built-in appenders: `ConsoleAppender` and `FileAppender`.
+-   **`Appenders`**: These are the destinations for your log messages. `perfect-logger` comes with three built-in appenders: `ConsoleAppender`, `FileAppender`, and `CallbackAppender`.
 
 ---
 
@@ -159,6 +159,47 @@ logger.info('Starting background job...');
 | `maxSize`      | `number`             | `null`                                                                             | The maximum size of a log file in **bytes**. If the file exceeds this size, it will be rotated.                                          |
 | `maxFiles`     | `number`             | `null`                                                                             | The maximum number of archived log files to keep. The oldest files are deleted automatically.                                            |
 | `timezone`     | `string`             | `undefined`                                                                        | An IANA timezone string to use for `{date}` and `{time}`.                                                                                |
+
+### `CallbackAppender`
+
+Provides a hook into the logging stream, executing a custom function for each log entry. This is perfect for integrating with third-party monitoring services, sending logs over a network, or performing any other custom logic.
+
+#### Example Usage
+
+```typescript
+import { LogManager, CallbackAppender, LogLevel, LogEntry } from 'perfect-logger';
+
+// Example: Send critical errors to a monitoring service
+function sendToMonitoringService(entry: LogEntry) {
+    const { level, message, error } = entry;
+    // In a real-world scenario, you would format and send this data
+    // to a service like Sentry, DataDog, etc.
+    console.log(`-- Sending to monitoring: [${LogLevel[level]}] ${message} --`);
+    if (error) {
+        console.log(error.stack);
+    }
+}
+
+LogManager.configure({
+    appenders: [
+        new CallbackAppender({
+            callback: sendToMonitoringService,
+            minLevel: LogLevel.ERROR // Only send errors and fatal logs
+        })
+    ]
+});
+
+const logger = LogManager.getLogger('payment-gateway');
+logger.info('Processing payment...'); // This will not trigger the callback
+logger.fatal('Credit card service is down!', new Error('Service Unreachable'));
+```
+
+#### Configuration Options
+
+| Option     | Type          | Default         | Description                                               |
+| :--------- | :------------ | :-------------- | :-------------------------------------------------------- |
+| `minLevel` | `LogLevel`      | `LogLevel.TRACE`  | The minimum log level this appender will process.         |
+| `callback` | `(entry: LogEntry) => void` | **Required**    | The function to execute for each log entry.               |
 
 ### Understanding Log Rotation Behavior
 
