@@ -201,7 +201,72 @@ logger.fatal('Credit card service is down!', new Error('Service Unreachable'));
 | `minLevel` | `LogLevel`      | `LogLevel.TRACE`  | The minimum log level this appender will process.         |
 | `callback` | `(entry: LogEntry) => void` | **Required**    | The function to execute for each log entry.               |
 
-### Understanding Log Rotation Behavior
+---
+
+## Extending the Logger: Custom Appenders
+
+`perfect-logger` is designed to be extensible. You can easily create your own appenders to send logs to any destination you can imagine, such as a database, a third-party API, or a real-time dashboard.
+
+To create a custom appender, you need to extend the `BaseAppender` class and implement the `handle` method.
+
+### Example: A Simple `AlertAppender`
+
+Let's create an appender that shows a browser `alert()` for any `FATAL` log messages.
+
+```typescript
+import { BaseAppender, LogEntry, AppenderConfig, LogLevel } from 'perfect-logger';
+
+// 1. Define a configuration interface (optional, but good practice)
+export interface AlertAppenderConfig extends AppenderConfig {
+    // You can add custom options here if needed
+}
+
+// 2. Create the custom appender class
+export class AlertAppender extends BaseAppender {
+    constructor(config: AlertAppenderConfig = {}) {
+        // Set a default minLevel if you want
+        super('AlertAppender', config, { minLevel: LogLevel.FATAL });
+    }
+
+    // 3. Implement the 'handle' method
+    public handle(entry: LogEntry): void {
+        // The BaseAppender already filters by minLevel, so no need to check here.
+        
+        const formattedMessage = `[${LogLevel[entry.level]}] ${entry.message}`;
+        
+        // In a browser environment, show an alert.
+        if (typeof window !== 'undefined') {
+            window.alert(formattedMessage);
+        }
+    }
+}
+```
+
+### Using Your Custom Appender
+
+Once you've created your appender, you can use it just like any of the built-in ones.
+
+```typescript
+import { LogManager, ConsoleAppender } from 'perfect-logger';
+import { AlertAppender } from './AlertAppender'; // Import your custom appender
+
+LogManager.configure({
+    appenders: [
+        new ConsoleAppender(), // Still log to the console
+        new AlertAppender()    // And also show alerts for fatal errors
+    ]
+});
+
+const logger = LogManager.getLogger('app');
+logger.info('This is just a normal log.');
+logger.fatal('Something went terribly wrong!'); // This will trigger the alert!
+```
+
+By extending `BaseAppender`, your custom appender automatically gets `minLevel` filtering and a consistent structure, making it easy to create powerful, reusable logging plugins.
+
+---
+
+## Understanding Log Rotation Behavior
 
 A key feature of the `FileAppender` is its predictable and convenient rotation strategy.
 
