@@ -41,6 +41,14 @@ export abstract class BaseAppender implements Appender {
     }
 
     /**
+     * Attaches a filter to this appender's filter chain.
+     * @param filter The filter to append.
+     */
+    public addFilter(filter: Filter): void {
+        this.filters.push(filter);
+    }
+
+    /**
      * Primary log entry point called by Logger/LogManager.
      * Evaluates appender filters, checks minLevel, buffers if batching is enabled,
      * and delegates to handle() or handleBatch().

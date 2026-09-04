@@ -56,6 +56,29 @@ export class LogManager {
     }
 
     /**
+     * Static convenience helper to configure the singleton LogManager.
+     *
+     * @param config - Configuration settings to apply.
+     */
+    public static configure(config: Partial<LoggerConfig>): void {
+        LogManager.getInstance().configure(config);
+    }
+
+    /**
+     * Static convenience helper to flush all pending logs across all appenders.
+     */
+    public static async flush(): Promise<void> {
+        await LogManager.getInstance().flush();
+    }
+
+    /**
+     * Static convenience helper to flush and shutdown all appenders.
+     */
+    public static async shutdown(): Promise<void> {
+        await LogManager.getInstance().shutdown();
+    }
+
+    /**
      * Returns the root logger in the hierarchy.
      */
     public getRootLogger(): Logger {

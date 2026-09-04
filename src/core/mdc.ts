@@ -122,6 +122,13 @@ export class MDC {
     }
 
     /**
+     * Returns a copy of the context map (SLF4J compatibility alias for getContext()).
+     */
+    public static getCopyOfContextMap(): Record<string, unknown> {
+        return MDC.getContext();
+    }
+
+    /**
      * Internal testing hook to inspect or override underlying storage.
      */
     public static _setStorage(storage: unknown): void {

@@ -372,6 +372,7 @@ export class Logger {
 
         // 1. Evaluate global filters from LogManager
         const globalFilters = this.logManager.getFilters();
+        let isGloballyAccepted = false;
         if (globalFilters.length > 0) {
             let globalDecision = FilterResult.NEUTRAL;
             for (const filter of globalFilters) {
@@ -383,6 +384,9 @@ export class Logger {
             }
             if (globalDecision === FilterResult.DENY) {
                 return;
+            }
+            if (globalDecision === FilterResult.ACCEPT) {
+                isGloballyAccepted = true;
             }
         }
 
@@ -400,10 +404,10 @@ export class Logger {
             if (decision === FilterResult.DENY) {
                 return;
             }
-            if (decision === FilterResult.NEUTRAL && !this.isLevelEnabled(level)) {
+            if (decision === FilterResult.NEUTRAL && !isGloballyAccepted && !this.isLevelEnabled(level)) {
                 return;
             }
-        } else if (!this.isLevelEnabled(level)) {
+        } else if (!isGloballyAccepted && !this.isLevelEnabled(level)) {
             return;
         }
 
