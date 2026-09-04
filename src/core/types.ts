@@ -77,9 +77,16 @@ export interface ConsoleAppenderConfig extends AppenderConfig {
  */
 export interface Appender {
     name: string;
+
     /**
-     * Called internally by the BaseAppender logic.
-     * Implementations should write the logs to their destination.
+     * The main entry point called by LogManager for each log entry.
+     * Handles level filtering and optional batching before delegating to handle().
+     */
+    log(entry: LogEntry): Promise<void> | void;
+
+    /**
+     * Called internally by the log() pipeline after filtering/batching.
+     * Implementations should write the log to their destination.
      */
     handle(entry: LogEntry): Promise<void> | void;
 
@@ -88,4 +95,15 @@ export interface Appender {
      * If batching is enabled, this is called instead of handle().
      */
     handleBatch?(entries: LogEntry[]): Promise<void> | void;
+
+    /**
+     * Flush any buffered log entries immediately.
+     */
+    flush(): Promise<void>;
+
+    /**
+     * Clean up resources (timers, file handles, etc.).
+     * Called during LogManager.shutdown() or when appenders are replaced.
+     */
+    destroy(): void;
 }

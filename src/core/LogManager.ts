@@ -63,9 +63,21 @@ export class LogManager {
 
     /**
      * Configures the LogManager. This should be called once at application startup.
+     * R6: Destroys existing appenders before replacing them to prevent orphaned timers.
      * @param config The configuration object.
      */
     public configure(config: Partial<LoggerConfig>): void {
+        // R6: Clean up existing appenders before replacing them
+        if (config.appenders && this.config.appenders.length > 0) {
+            for (const appender of this.config.appenders) {
+                try {
+                    appender.destroy();
+                } catch (e) {
+                    // Ignore cleanup errors during reconfiguration
+                }
+            }
+        }
+
         this.config = { ...this.config, ...config };
 
         // Pass the global timezone to appenders that don't have one
@@ -87,16 +99,64 @@ export class LogManager {
 
     /**
      * Dispatches a log entry to all configured appenders.
+     * B3: Each appender call is wrapped in try/catch to prevent unhandled rejections.
+     * R3: The entry is frozen before dispatch to prevent mutation across appenders.
      * This is called by the Logger instances.
      * @param entry The log entry to dispatch.
      */
     public dispatch(entry: LogEntry): void {
         if (entry.level >= this.config.minLevel) {
+            // R3: Freeze the entry to prevent mutation by one appender affecting others.
+            // We freeze context separately since Object.freeze is shallow.
+            if (entry.context) {
+                Object.freeze(entry.context);
+            }
+            Object.freeze(entry);
+
             for (const appender of this.config.appenders) {
-                // The type assertion is a bit of a hack, but it's necessary
-                // because the Appender interface doesn't have a log method.
-                (appender as any).log(entry);
+                try {
+                    // B3: Catch both sync errors and unhandled promise rejections
+                    const result = appender.log(entry);
+                    if (result && typeof (result as any).catch === 'function') {
+                        (result as Promise<void>).catch((e: unknown) => {
+                            console.error(`[perfect-logger] Error in appender "${appender.name}":`, e);
+                        });
+                    }
+                } catch (e) {
+                    console.error(`[perfect-logger] Error in appender "${appender.name}":`, e);
+                }
             }
         }
+    }
+
+    /**
+     * R1: Flush all pending batched log entries across all appenders.
+     * Call this before process exit to ensure no logs are lost.
+     */
+    public async flush(): Promise<void> {
+        const flushPromises = this.config.appenders.map(async (appender) => {
+            try {
+                await appender.flush();
+            } catch (e) {
+                console.error(`[perfect-logger] Error flushing appender "${appender.name}":`, e);
+            }
+        });
+        await Promise.allSettled(flushPromises);
+    }
+
+    /**
+     * R1: Flush all appenders and then destroy them (clean up timers, file handles, etc.).
+     * Call this during graceful application shutdown.
+     */
+    public async shutdown(): Promise<void> {
+        await this.flush();
+        for (const appender of this.config.appenders) {
+            try {
+                appender.destroy();
+            } catch (e) {
+                console.error(`[perfect-logger] Error destroying appender "${appender.name}":`, e);
+            }
+        }
+        this.config.appenders = [];
     }
 }

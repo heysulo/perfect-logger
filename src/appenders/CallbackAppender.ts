@@ -19,10 +19,6 @@ export class CallbackAppender extends BaseAppender {
     }
 
     public handle(entry: LogEntry): void {
-        if (entry.level < this.minLevel) {
-            return;
-        }
-
         try {
             this.callback(entry);
         } catch (e) {

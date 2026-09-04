@@ -2,6 +2,7 @@ import { LogEntry, AppenderConfig } from '../core/types';
 import { BaseAppender } from './BaseAppender';
 import { isNode } from '../utils/environment';
 import { LogLevel } from '../constants';
+import { LogFormatter } from '../utils/LogFormatter';
 import { safeStringify } from '../utils/safeStringify';
 import type * as fs from 'fs';
 import type * as path from 'path';
@@ -21,9 +22,6 @@ if (isNode()) {
     }
 }
 
-const DEFAULT_FORMAT = '{date} | {time} | {level} | {namespace} | {message}';
-const DEFAULT_FILENAME = 'app.log';
-
 export interface FileAppenderConfig extends AppenderConfig {
     logDirectory?: string;
     fileName?: string;
@@ -36,17 +34,25 @@ export interface FileAppenderConfig extends AppenderConfig {
 export class FileAppender extends BaseAppender {
     private readonly logDirectory: string;
     private readonly fileName: string;
-    private readonly formatTemplate: string;
+    private readonly formatter: LogFormatter;
     private readonly rotation?: 'daily' | 'hourly';
     private readonly maxSize: number | null;
     private readonly maxFiles: number | null;
 
-    private readonly dateFormatter: Intl.DateTimeFormat;
-    private readonly timeFormatter: Intl.DateTimeFormat;
+    /**
+     * Intl.DateTimeFormat used to extract timezone-aware date parts for rotation markers.
+     * This ensures getDateMarker() respects the configured timezone. (B4 fix)
+     */
+    private readonly markerFormatter: Intl.DateTimeFormat;
 
     private currentFilePath: string;
     private currentFileSize = 0;
     private currentFileDateMarker: string | null = null;
+
+    /**
+     * Write mutex to serialize handleBatch calls and prevent concurrent rotation. (B6 fix)
+     */
+    private writeQueue: Promise<void> = Promise.resolve();
 
     constructor(config: FileAppenderConfig = {}) {
         super('FileAppender', config, { minLevel: LogLevel.INFO });
@@ -56,36 +62,45 @@ export class FileAppender extends BaseAppender {
         }
 
         this.logDirectory = config.logDirectory || pathModule.join(process.cwd(), 'logs');
-        this.fileName = config.fileName || DEFAULT_FILENAME;
-        this.formatTemplate = config.format || DEFAULT_FORMAT;
-        
+        this.fileName = config.fileName || 'app.log';
+        this.formatter = new LogFormatter(config.format, this.timezone);
+
         this.rotation = config.rotation;
-        this.maxSize = config.maxSize || null;
-        this.maxFiles = config.maxFiles || null;
+        this.maxSize = config.maxSize ?? null;  // Q5: nullish instead of falsy
+        this.maxFiles = config.maxFiles ?? null; // Q5: nullish instead of falsy
 
-        this.dateFormatter = new Intl.DateTimeFormat(undefined, {
-            year: 'numeric', month: '2-digit', day: '2-digit', timeZone: this.timezone,
-        });
-        this.timeFormatter = new Intl.DateTimeFormat(undefined, {
-            hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false, timeZone: this.timezone,
+        // B4: Use Intl.DateTimeFormat for timezone-aware date markers
+        this.markerFormatter = new Intl.DateTimeFormat('en-CA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            hour12: false,
+            timeZone: this.timezone,
         });
 
+        // B2: Synchronous initialization — no async race condition
+        this.initializeStateSync();
         this.currentFilePath = this.getCurrentFilename();
-        this.initializeState();
     }
 
-    private async initializeState(): Promise<void> {
-        if (!fsModule.existsSync(this.logDirectory)) {
-            fsModule.mkdirSync(this.logDirectory, { recursive: true });
+    /**
+     * B2 fix: Fully synchronous initialization to avoid constructor race conditions.
+     */
+    private initializeStateSync(): void {
+        if (!fsModule!.existsSync(this.logDirectory)) {
+            fsModule!.mkdirSync(this.logDirectory, { recursive: true });
         }
-        
-        this.currentFilePath = this.getCurrentFilename();
+
         if (this.rotation) {
             this.currentFileDateMarker = this.getDateMarker(new Date());
         }
 
+        // Set initial file path before checking size
+        this.currentFilePath = this.getCurrentFilename();
+
         try {
-            const stats = await fsPromises.stat(this.currentFilePath);
+            const stats = fsModule!.statSync(this.currentFilePath);
             this.currentFileSize = stats.size;
         } catch (e) {
             this.currentFileSize = 0;
@@ -96,11 +111,20 @@ export class FileAppender extends BaseAppender {
         this.handleBatch([entry]);
     }
 
-    public async handleBatch(entries: LogEntry[]): Promise<void> {
+    /**
+     * R7: Removed redundant minLevel filter — BaseAppender.log() already filters.
+     * B6: All writes are serialized through writeQueue to prevent concurrent rotation.
+     */
+    public handleBatch(entries: LogEntry[]): void {
+        if (!fsPromises) return;
+
+        this.writeQueue = this.writeQueue.then(() => this.writeBatch(entries));
+    }
+
+    private async writeBatch(entries: LogEntry[]): Promise<void> {
         if (!fsPromises) return;
 
         const logLines = entries
-            .filter(entry => entry.level >= this.minLevel)
             .map(entry => this.formatLog(entry))
             .join('\n');
 
@@ -124,12 +148,12 @@ export class FileAppender extends BaseAppender {
         const sizeBoundaryReached = this.maxSize !== null && (this.currentFileSize + bytesToAdd > this.maxSize);
 
         if (timeBoundaryReached || sizeBoundaryReached) {
-            await this.rotate(timeBoundaryReached);
+            await this.rotate(!!timeBoundaryReached);
         }
     }
 
     private async rotate(timeBased: boolean): Promise<void> {
-        if (!pathModule) return;
+        if (!pathModule || !fsPromises) return;
         const oldPath = this.currentFilePath;
 
         // Determine the new path for the current log file
@@ -151,10 +175,16 @@ export class FileAppender extends BaseAppender {
         const baseName = pathModule.basename(this.fileName, ext);
         const archives = await this.getArchives(baseName);
 
-        const archiveName = timeBased
-            ? `${baseName}-${this.getDateMarker(new Date(Date.now() - 1))}${ext}` // Use previous date marker
-            : `${baseName}.${archives.length + 1}${ext}`;
-        
+        let archiveName: string;
+        if (timeBased) {
+            // Use previous date marker for the archive name
+            archiveName = `${baseName}-${this.getDateMarker(new Date(Date.now() - 1))}${ext}`;
+        } else {
+            // B5: Parse highest existing numeric suffix instead of using array length
+            const maxSuffix = this.getMaxNumericSuffix(archives, baseName, ext);
+            archiveName = `${baseName}.${maxSuffix + 1}${ext}`;
+        }
+
         const archivePath = pathModule.join(this.logDirectory, archiveName);
 
         try {
@@ -168,17 +198,39 @@ export class FileAppender extends BaseAppender {
         await this.prune([archivePath, ...archives]);
     }
 
+    /**
+     * B5 fix: Find the highest numeric suffix among existing archives
+     * so we never overwrite an existing archive file.
+     */
+    private getMaxNumericSuffix(archives: string[], baseName: string, ext: string): number {
+        let max = 0;
+        const regex = new RegExp(`^${this.escapeRegex(baseName)}\\.(\\d+)${this.escapeRegex(ext)}$`);
+        for (const archive of archives) {
+            const fileName = pathModule!.basename(archive);
+            const match = fileName.match(regex);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > max) max = num;
+            }
+        }
+        return max;
+    }
+
+    private escapeRegex(str: string): string {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     private async prune(archives: string[]): Promise<void> {
         if (!this.maxFiles || !pathModule) return;
 
         const filesToProcess = archives.sort().reverse(); // Newest first
-        
+
         // Delete oldest files
         if (filesToProcess.length > this.maxFiles) {
             const filesToDelete = filesToProcess.slice(this.maxFiles);
             for (const file of filesToDelete) {
                 try {
-                    await fsPromises.unlink(file);
+                    await fsPromises!.unlink(file);
                 } catch (e) {
                     console.error(`Failed to delete old log file: ${file}`, e);
                 }
@@ -187,55 +239,47 @@ export class FileAppender extends BaseAppender {
     }
 
     private async getArchives(baseName: string): Promise<string[]> {
-        if (!pathModule) return [];
+        if (!pathModule || !fsPromises) return [];
         const files = await fsPromises.readdir(this.logDirectory);
         const ext = pathModule.extname(this.fileName);
-        const regex = new RegExp(`^${baseName}[-.]`);
+        const regex = new RegExp(`^${this.escapeRegex(baseName)}[-.]`);
         return files
             .filter(f => f.startsWith(baseName) && f !== this.fileName && regex.test(f))
-            .map(f => pathModule.join(this.logDirectory, f));
+            .map(f => pathModule!.join(this.logDirectory, f));
     }
 
     private getCurrentFilename(): string {
         if (!pathModule) return '';
         if (this.rotation && this.maxSize === null) { // Purely time-based
-            return pathModule.join(this.logDirectory, `${pathModule.basename(this.fileName, pathModule.extname(this.fileName))}-${this.getDateMarker(new Date())}${pathModule.extname(this.fileName)}`);
+            const ext = pathModule.extname(this.fileName);
+            const base = pathModule.basename(this.fileName, ext);
+            return pathModule.join(this.logDirectory, `${base}-${this.getDateMarker(new Date())}${ext}`);
         }
         return pathModule.join(this.logDirectory, this.fileName);
     }
 
+    /**
+     * B4 fix: Uses Intl.DateTimeFormat to extract timezone-aware date parts,
+     * so rotation boundaries match the configured timezone.
+     */
     private getDateMarker(date: Date): string {
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
+        const parts = this.markerFormatter.formatToParts(date);
+        const year = parts.find(p => p.type === 'year')?.value;
+        const month = parts.find(p => p.type === 'month')?.value;
+        const day = parts.find(p => p.type === 'day')?.value;
+
         if (this.rotation === 'hourly') {
-            const hour = date.getHours().toString().padStart(2, '0');
+            const hour = parts.find(p => p.type === 'hour')?.value;
             return `${year}-${month}-${day}T${hour}`;
         }
         return `${year}-${month}-${day}`;
     }
 
+    /**
+     * R5: Uses shared LogFormatter for consistent formatting with ConsoleAppender.
+     */
     private formatLog(entry: LogEntry): string {
-        const parts = this.dateFormatter.formatToParts(entry.timestamp);
-        const year = parts.find(p => p.type === 'year')?.value;
-        const month = parts.find(p => p.type === 'month')?.value;
-        const day = parts.find(p => p.type === 'day')?.value;
-        const date = `${year}/${month}/${day}`;
-
-        const baseTime = this.timeFormatter.format(entry.timestamp);
-        const milliseconds = entry.timestamp.getMilliseconds().toString().padStart(3, '0');
-        const time = `${baseTime}.${milliseconds}`;
-
-        const level = (LogLevel[entry.level] || 'UNKNOWN');
-        
-        let logLine = this.formatTemplate
-            .replace('{date}', date)
-            .replace('{time}', time)
-            .replace('{level}', level)
-            .replace('{namespace}', entry.namespace)
-            .replace('{message}', entry.message)
-            .replace('{context}', '')
-            .replace('{error}', '');
+        let logLine = this.formatter.format(entry);
 
         if (entry.context) {
             const prettyContext = safeStringify(entry.context, null, 4);
@@ -246,7 +290,7 @@ export class FileAppender extends BaseAppender {
         if (entry.error) {
             logLine += `\n${entry.error.stack || entry.error.message}`;
         }
-        
+
         return logLine;
     }
 }

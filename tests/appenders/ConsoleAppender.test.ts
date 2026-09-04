@@ -73,7 +73,7 @@ describe('ConsoleAppender', () => {
             timestamp: new Date(),
         };
 
-        appender.handle(entry);
+        appender.log(entry);
 
         expect(console.info).not.toHaveBeenCalled();
     });

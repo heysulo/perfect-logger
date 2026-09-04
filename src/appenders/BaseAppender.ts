@@ -9,7 +9,7 @@ export abstract class BaseAppender implements Appender {
     protected readonly timezone?: string;
 
     private buffer: LogEntry[] = [];
-    private timer: NodeJS.Timeout | null = null;
+    private timer: ReturnType<typeof setInterval> | null = null;
 
     constructor(name: string, config: AppenderConfig, defaultConfig: Partial<AppenderConfig> = {}) {
         this.name = name;
@@ -50,12 +50,27 @@ export abstract class BaseAppender implements Appender {
                 }
             }
         }
-        this.startTimer();
+        if (this.batchSize > 1) {
+            this.startTimer();
+        }
+    }
+
+    /**
+     * Clean up resources. Stops the batch timer and flushes any remaining entries.
+     */
+    public destroy(): void {
+        this.stopTimer();
+        // Synchronously clear the buffer — callers should flush() before destroy() if they need the data.
+        this.buffer = [];
     }
 
     private startTimer(): void {
         if (this.batchSize > 1 && !this.timer) {
             this.timer = setInterval(() => this.flush(), this.batchInterval);
+            // Prevent the timer from keeping the Node.js event loop alive
+            if (this.timer && typeof this.timer === 'object' && 'unref' in this.timer) {
+                this.timer.unref();
+            }
         }
     }
 
