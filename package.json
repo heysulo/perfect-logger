@@ -1,19 +1,34 @@
 {
   "name": "perfect-logger",
-  "version": "3.0.0",
-  "description": "A zero-dependency, isomorphic logger for Node.js and Browsers with plugin support.",
+  "version": "4.0.0",
+  "description": "Enterprise-grade, zero-dependency, isomorphic logging framework for Node.js and Browsers inspired by Log4j 2.",
   "main": "dist/index.js",
+  "module": "dist/esm/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "files": [
     "dist",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.esm.json",
     "watch": "tsc -w",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:examples": "ts-node examples/01-quick-start.ts && ts-node examples/02-hierarchical-loggers.ts && ts-node examples/03-mdc-async-context.ts && ts-node examples/04-layouts-pattern-and-json.ts && ts-node examples/05-semantic-markers.ts && ts-node examples/06-filters-pipeline.ts && ts-node examples/07-advanced-appenders.ts && ts-node examples/08-declarative-config.ts",
     "lint": "eslint 'src/**/*.{js,ts}' --exit-on-fatal-error",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "prepublishOnly": "npm run build",
@@ -32,6 +47,11 @@
   "keywords": [
     "logger",
     "logging",
+    "log4j",
+    "enterprise",
+    "mdc",
+    "marker",
+    "async-appender",
     "typescript",
     "isomorphic",
     "universal",

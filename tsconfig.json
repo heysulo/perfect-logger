@@ -5,11 +5,13 @@
     "module": "CommonJS",                /* Standard output for NPM packages */
     "lib": ["ES2019", "DOM"],            /* Include DOM types (window, console) and ES features */
     "declaration": true,                 /* Generate .d.ts files so users get autocomplete */
+    "declarationMap": true,              /* Q2: Enable declaration maps for IDE source navigation */
+    "sourceMap": true,                   /* Q2: Enable source maps for debugging */
     "outDir": "./dist",                  /* Output compiled JS to dist/ folder */
     "rootDir": "./src",                  /* Source files are in src/ */
 
     /* Strictness */
-    "strict": false,                     /* Disable all strict type-checking options */
+    "strict": true,                      /* Q1: Enable all strict type-checking options */
 
     /* Interop */
     "esModuleInterop": true,             /* Allow default imports from CommonJS modules */

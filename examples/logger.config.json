@@ -1,0 +1,38 @@
+{
+  "timezone": "UTC",
+  "appenders": {
+    "console": {
+      "type": "Console",
+      "minLevel": "DEBUG",
+      "layout": {
+        "type": "Pattern",
+        "pattern": "%d{ISO8601} [%p] %c - %m %X"
+      }
+    },
+    "file": {
+      "type": "RollingFile",
+      "minLevel": "DEBUG",
+      "logDirectory": "logs/declarative",
+      "fileName": "application.log",
+      "rotation": "daily",
+      "maxSize": 10485760,
+      "maxFiles": 7,
+      "compress": true,
+      "layout": {
+        "type": "Json",
+        "pretty": false,
+        "timestampFormat": "iso"
+      }
+    }
+  },
+  "root": {
+    "level": "${env:LOG_LEVEL:-INFO}",
+    "appenders": ["console", "file"]
+  },
+  "loggers": {
+    "com.enterprise.security": {
+      "level": "DEBUG",
+      "additivity": true
+    }
+  }
+}
