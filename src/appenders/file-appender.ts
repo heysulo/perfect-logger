@@ -43,6 +43,23 @@ export interface FileAppenderConfig extends AppenderConfig {
     compress?: boolean;
 }
 
+/**
+ * Industrial-grade file appender with size-based rotation, time-based rotation
+ * (daily/hourly), history pruning (`maxFiles`), and native gzip compression (`compress: true`).
+ * All file I/O operations are serialized with an internal write queue to prevent race conditions.
+ *
+ * @example
+ * ```ts
+ * const appender = new FileAppender({
+ *   logDirectory: 'logs',
+ *   fileName: 'server.log',
+ *   rotation: 'daily',
+ *   maxSize: 10 * 1024 * 1024, // 10 MB
+ *   maxFiles: 7,
+ *   compress: true,
+ * });
+ * ```
+ */
 export class FileAppender extends BaseAppender {
     public readonly layout: Layout;
     private readonly logDirectory: string;
@@ -143,6 +160,10 @@ export class FileAppender extends BaseAppender {
         }
     }
 
+    /**
+     * Enqueues a single log entry to be written to the active log file.
+     * @param entry The log entry to write.
+     */
     public handle(entry: LogEntry): void {
         this.handleBatch([entry]);
     }

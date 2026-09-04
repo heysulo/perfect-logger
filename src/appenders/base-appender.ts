@@ -3,6 +3,11 @@ import { LogLevel } from '../constants';
 import { Layout } from '../layouts/layout';
 import { Filter, FilterResult } from '../filters/filter';
 
+/**
+ * Abstract base class for all log appenders.
+ * Provides level threshold filtering, appender-tier filter evaluation,
+ * in-memory batching with configurable interval/size, and timezone propagation.
+ */
 export abstract class BaseAppender implements Appender {
     public readonly name: string;
     public readonly layout?: Layout;
@@ -35,6 +40,12 @@ export abstract class BaseAppender implements Appender {
         }
     }
 
+    /**
+     * Primary log entry point called by Logger/LogManager.
+     * Evaluates appender filters, checks minLevel, buffers if batching is enabled,
+     * and delegates to handle() or handleBatch().
+     * @param entry The log entry to process.
+     */
     public async log(entry: LogEntry): Promise<void> {
         // Evaluate appender-level filters if present
         if (this.filters.length > 0) {
@@ -67,6 +78,9 @@ export abstract class BaseAppender implements Appender {
         }
     }
 
+    /**
+     * Flushes all currently buffered log entries immediately.
+     */
     public async flush(): Promise<void> {
         this.stopTimer();
         if (this.buffer.length > 0) {
@@ -111,6 +125,17 @@ export abstract class BaseAppender implements Appender {
         }
     }
 
+    /**
+     * Writes a single log entry to the destination transport.
+     * Must be implemented by concrete appender subclasses.
+     * @param entry The log entry to write.
+     */
     abstract handle(entry: LogEntry): Promise<void> | void;
+
+    /**
+     * Optional batch handler for writing multiple entries in a single I/O operation.
+     * Subclasses with native batching (File, HTTP) should implement this.
+     * @param entries Array of log entries to write.
+     */
     handleBatch?(entries: LogEntry[]): Promise<void> | void;
 }

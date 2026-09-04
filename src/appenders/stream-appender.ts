@@ -52,6 +52,10 @@ export class StreamAppender extends BaseAppender {
         }
     }
 
+    /**
+     * Writes a formatted log line directly to the writable stream.
+     * @param entry The log entry to write.
+     */
     public handle(entry: LogEntry): void {
         const line = this.layout.format(entry) + '\n';
         if (this.stream && typeof this.stream.write === 'function') {
@@ -62,6 +66,10 @@ export class StreamAppender extends BaseAppender {
         }
     }
 
+    /**
+     * Writes a batch of formatted log lines to the stream in a single chunk.
+     * @param entries Array of log entries to format and write.
+     */
     public handleBatch(entries: LogEntry[]): void {
         if (!entries.length) return;
 

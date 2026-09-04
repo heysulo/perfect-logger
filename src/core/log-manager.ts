@@ -30,6 +30,10 @@ export class LogManager {
         });
     }
 
+    /**
+     * Retrieves the singleton instance of the LogManager.
+     * @returns The active LogManager singleton.
+     */
     public static getInstance(): LogManager {
         if (!LogManager.instance) {
             LogManager.instance = new LogManager();

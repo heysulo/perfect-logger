@@ -53,6 +53,20 @@ export interface DeclarativeConfig {
     timezone?: string;
 }
 
+/**
+ * Declarative configuration parser and file loader.
+ * Converts raw JSON/JS declarative configuration objects into fully-wired LoggerConfig trees,
+ * instantiating appenders, layouts, resolving `${env:VAR:-default}` interpolations,
+ * and mapping string log levels to numeric constants.
+ *
+ * @example
+ * ```ts
+ * const config = ConfigLoader.loadConfigFile();
+ * if (config) {
+ *   LogManager.getInstance().configure(ConfigLoader.parseConfig(config));
+ * }
+ * ```
+ */
 export class ConfigLoader {
     /**
      * Parses a declarative configuration object, instantiating layouts and appenders,

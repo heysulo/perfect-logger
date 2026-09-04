@@ -24,10 +24,20 @@ import { ConfigLoader, DeclarativeConfig, DeclarativeAppenderConfig, Declarative
 import { LogFormatter } from './utils/log-formatter';
 import { LoggerConfig, LoggerNodeConfig, AppenderConfig, LogEntry, Appender, ConsoleAppenderConfig } from './core/types';
 
-// Initialize the singleton LogManager
+/**
+ * Singleton instance of the central LogManager.
+ */
 const logManager = LogManager.getInstance();
 
-// Create a default logger instance for immediate use
+/**
+ * Pre-configured default logger instance ready for immediate use.
+ *
+ * @example
+ * ```ts
+ * import { defaultLogger } from 'perfect-logger';
+ * defaultLogger.info('Hello world');
+ * ```
+ */
 const defaultLogger = logManager.getLogger('default');
 
 export {

@@ -33,6 +33,28 @@ export interface PatternLayoutOptions {
 
 export const DEFAULT_PATTERN = '{date} | {time} | {level} | {namespace} | {message}';
 
+/**
+ * Log4j-style conversion pattern layout.
+ * Formats a LogEntry into a human-readable text string using customizable conversion tokens.
+ *
+ * Supported specifiers:
+ * - `%d`, `%d{ISO8601}`, `%d{YYYY-MM-DD HH:mm:ss.SSS}`: Timestamps
+ * - `%p`, `%level`: Log severity level
+ * - `%c`, `%c{n}`, `%logger`: Logger namespace category (with optional truncation depth)
+ * - `%m`, `%msg`, `%message`: The main log message
+ * - `%marker`, `%markerSimpleName`: Attached semantic marker
+ * - `%X{key}`, `%X`: Mapped diagnostic context values
+ * - `%ex`, `%throwable`: Error stack trace or message
+ * - `%n`: Platform newline
+ *
+ * @example
+ * ```ts
+ * const layout = new PatternLayout({
+ *   pattern: '%d{ISO8601} [%p] %c - %m%X%ex',
+ *   timezone: 'UTC',
+ * });
+ * ```
+ */
 export class PatternLayout implements Layout {
     public readonly contentType = 'text/plain';
     private readonly pattern: string;
@@ -64,6 +86,11 @@ export class PatternLayout implements Layout {
         });
     }
 
+    /**
+     * Formats a LogEntry into a formatted text string according to the configured pattern.
+     * @param entry The log entry to format.
+     * @returns Formatted log line string.
+     */
     public format(entry: LogEntry): string {
         let output = this.pattern;
 

@@ -4,6 +4,19 @@ import { LogLevel } from '../constants';
 import { Layout } from '../layouts/layout';
 import { PatternLayout, DEFAULT_PATTERN } from '../layouts/pattern-layout';
 
+/**
+ * Appender that writes formatted log events to the console/terminal.
+ * Directs entries to the corresponding console level methods (`console.trace`, `console.debug`,
+ * `console.info`, `console.warn`, `console.error`).
+ *
+ * @example
+ * ```ts
+ * const appender = new ConsoleAppender({
+ *   minLevel: LogLevel.DEBUG,
+ *   format: '%d [%p] %c: %m%X',
+ * });
+ * ```
+ */
 export class ConsoleAppender extends BaseAppender {
     public readonly layout: Layout;
 
@@ -17,6 +30,10 @@ export class ConsoleAppender extends BaseAppender {
         });
     }
 
+    /**
+     * Formats and writes a log entry to the console.
+     * @param entry The log entry to write.
+     */
     public handle(entry: LogEntry): void {
         const logLine = this.layout.format(entry);
 

@@ -47,6 +47,20 @@ export interface JsonLayoutOptions {
     includeError?: boolean;
 }
 
+/**
+ * Structured JSON layout for modern log aggregation systems.
+ * Serializes LogEntry objects into compact or pretty-printed JSON lines with custom field name mapping,
+ * ISO 8601 or UNIX epoch timestamps, and safe circular reference handling.
+ *
+ * @example
+ * ```ts
+ * const layout = new JsonLayout({
+ *   pretty: false,
+ *   timestampFormat: 'iso',
+ *   fieldNames: { timestamp: '@timestamp', level: 'severity' }
+ * });
+ * ```
+ */
 export class JsonLayout implements Layout {
     public readonly contentType = 'application/json';
     private readonly pretty: boolean;
@@ -72,6 +86,11 @@ export class JsonLayout implements Layout {
         };
     }
 
+    /**
+     * Serializes a LogEntry into a JSON string.
+     * @param entry The log entry to serialize.
+     * @returns JSON string representation of the log entry.
+     */
     public format(entry: LogEntry): string {
         const output: Record<string, unknown> = {};
 
