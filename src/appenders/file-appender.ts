@@ -175,7 +175,20 @@ export class FileAppender extends BaseAppender {
     public handleBatch(entries: LogEntry[]): void {
         if (!fsPromises) return;
 
-        this.writeQueue = this.writeQueue.then(() => this.writeBatch(entries));
+        this.writeQueue = this.writeQueue
+            .then(() => this.writeBatch(entries))
+            .catch(e => {
+                console.error('Error processing FileAppender writeQueue batch:', e);
+            });
+    }
+
+    /**
+     * Flushes all buffered log entries and waits until all pending disk I/O operations
+     * in the internal write queue are completely finished.
+     */
+    public override async flush(): Promise<void> {
+        await super.flush();
+        await this.writeQueue;
     }
 
     private async writeBatch(entries: LogEntry[]): Promise<void> {
@@ -245,7 +258,7 @@ export class FileAppender extends BaseAppender {
         const archivePath = pathModule.join(this.logDirectory, archiveName);
 
         try {
-            await fsPromises.rename(oldPath, archivePath);
+            await this.safeRename(oldPath, archivePath);
         } catch (e) {
             console.error(`Failed to rotate log file from ${oldPath} to ${archivePath}`, e);
             return;
@@ -264,7 +277,7 @@ export class FileAppender extends BaseAppender {
                 });
                 const gzPath = `${archivePath}.gz`;
                 await fsPromises.writeFile(gzPath, gzipped);
-                await fsPromises.unlink(archivePath);
+                await this.safeUnlink(archivePath);
                 finalArchivePath = gzPath;
             } catch (e) {
                 console.error(`Failed to compress rotated log file ${archivePath}`, e);
@@ -273,6 +286,48 @@ export class FileAppender extends BaseAppender {
 
         // Prune
         await this.prune([finalArchivePath, ...archives]);
+    }
+
+    /**
+     * Retries rename on Windows locking errors (EPERM, EBUSY, EACCES)
+     * caused by OS file handle close latency or antivirus scanners.
+     */
+    private async safeRename(oldPath: string, newPath: string, retries = 5, delayMs = 50): Promise<void> {
+        if (!fsPromises) return;
+        for (let i = 0; i <= retries; i++) {
+            try {
+                await fsPromises.rename(oldPath, newPath);
+                return;
+            } catch (err: any) {
+                const isLockError = err && (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'EACCES');
+                if (isLockError && i < retries) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    continue;
+                }
+                throw err;
+            }
+        }
+    }
+
+    /**
+     * Retries unlink on Windows locking errors (EPERM, EBUSY, EACCES)
+     * caused by OS file handle close latency or antivirus scanners.
+     */
+    private async safeUnlink(filePath: string, retries = 5, delayMs = 50): Promise<void> {
+        if (!fsPromises) return;
+        for (let i = 0; i <= retries; i++) {
+            try {
+                await fsPromises.unlink(filePath);
+                return;
+            } catch (err: any) {
+                const isLockError = err && (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'EACCES');
+                if (isLockError && i < retries) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    continue;
+                }
+                throw err;
+            }
+        }
     }
 
     /**
@@ -310,7 +365,7 @@ export class FileAppender extends BaseAppender {
             const filesToDelete = filesToProcess.slice(this.maxFiles);
             for (const file of filesToDelete) {
                 try {
-                    await fsP.unlink(file);
+                    await this.safeUnlink(file);
                 } catch (e) {
                     console.error(`Failed to delete old log file: ${file}`, e);
                 }

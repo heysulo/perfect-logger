@@ -14,18 +14,24 @@ const TEST_CONFIG_DIR = path.join(__dirname, '..', '..', 'test-config-dir');
 describe('ConfigLoader', () => {
     const originalEnv = process.env;
 
+    const cleanConfigDir = () => {
+        if (fs.existsSync(TEST_CONFIG_DIR)) {
+            try {
+                fs.rmSync(TEST_CONFIG_DIR, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+            } catch {
+                // Ignore transient cleanup errors on Windows
+            }
+        }
+    };
+
     beforeEach(() => {
         process.env = { ...originalEnv };
-        if (fs.existsSync(TEST_CONFIG_DIR)) {
-            fs.rmSync(TEST_CONFIG_DIR, { recursive: true, force: true });
-        }
+        cleanConfigDir();
     });
 
     afterEach(() => {
         process.env = originalEnv;
-        if (fs.existsSync(TEST_CONFIG_DIR)) {
-            fs.rmSync(TEST_CONFIG_DIR, { recursive: true, force: true });
-        }
+        cleanConfigDir();
     });
 
     describe('interpolateEnvVariables', () => {
@@ -192,6 +198,12 @@ describe('ConfigLoader', () => {
             const config = ConfigLoader.loadConfigFile(TEST_CONFIG_DIR);
             expect(config).toBeDefined();
             expect(config?.root?.level).toBe('DEBUG');
+
+            try {
+                delete require.cache[require.resolve(jsPath)];
+            } catch {
+                // Ignore
+            }
         });
 
         it('should return null if no config file exists', () => {

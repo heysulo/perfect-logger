@@ -4,3 +4,6 @@ dist/*
 node_modules
 coverage
 .DS_Store
+logs
+test-logs
+test-config-dir

@@ -112,14 +112,19 @@ describe('StreamAppender', () => {
     });
 
     it('should set stream to null in constructor when stdout is not available', () => {
-        const originalStdout = process.stdout;
+        const descriptor = Object.getOwnPropertyDescriptor(process, 'stdout');
         try {
-            // @ts-expect-error - testing environment without stdout
-            delete process.stdout;
+            Object.defineProperty(process, 'stdout', {
+                value: undefined,
+                configurable: true,
+                writable: true,
+            });
             const appender = new StreamAppender({});
             expect((appender as any).stream).toBeNull();
         } finally {
-            process.stdout = originalStdout;
+            if (descriptor) {
+                Object.defineProperty(process, 'stdout', descriptor);
+            }
         }
     });
 

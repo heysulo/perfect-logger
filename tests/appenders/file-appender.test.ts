@@ -17,18 +17,22 @@ function makeEntry(level: LogLevel = LogLevel.INFO, message = 'test message'): L
 }
 
 describe('FileAppender', () => {
-    beforeEach(() => {
-        // Clean up test log directory before each test
+    const cleanTestDir = () => {
         if (fs.existsSync(TEST_LOG_DIR)) {
-            fs.rmSync(TEST_LOG_DIR, { recursive: true, force: true });
+            try {
+                fs.rmSync(TEST_LOG_DIR, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+            } catch {
+                // Ignore transient cleanup errors on Windows
+            }
         }
+    };
+
+    beforeEach(() => {
+        cleanTestDir();
     });
 
-    afterEach(() => {
-        // Clean up after tests
-        if (fs.existsSync(TEST_LOG_DIR)) {
-            fs.rmSync(TEST_LOG_DIR, { recursive: true, force: true });
-        }
+    afterEach(async () => {
+        cleanTestDir();
     });
 
     describe('constructor', () => {
@@ -37,11 +41,12 @@ describe('FileAppender', () => {
             expect(fs.existsSync(TEST_LOG_DIR)).toBe(true);
         });
 
-        it('should use default fileName when not specified', () => {
+        it('should use default fileName when not specified', async () => {
             const appender = new FileAppender({ logDirectory: TEST_LOG_DIR });
-            // Verify the default log file path
             appender.handle(makeEntry());
-            // Wait for async write
+            await appender.flush();
+            const files = fs.readdirSync(TEST_LOG_DIR);
+            expect(files).toContain('app.log');
         });
 
         it('should use custom fileName', async () => {
@@ -50,8 +55,7 @@ describe('FileAppender', () => {
                 fileName: 'custom.log',
             });
             appender.handle(makeEntry());
-            // Wait for the write queue to flush
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
             const files = fs.readdirSync(TEST_LOG_DIR);
             expect(files).toContain('custom.log');
         });
@@ -65,7 +69,7 @@ describe('FileAppender', () => {
             });
 
             appender.handle(makeEntry(LogLevel.INFO, 'hello world'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const logFile = path.join(TEST_LOG_DIR, 'test.log');
             expect(fs.existsSync(logFile)).toBe(true);
@@ -84,7 +88,7 @@ describe('FileAppender', () => {
             appender.handle(makeEntry(LogLevel.INFO, 'message 1'));
             appender.handle(makeEntry(LogLevel.WARN, 'message 2'));
             appender.handle(makeEntry(LogLevel.ERROR, 'message 3'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const content = fs.readFileSync(path.join(TEST_LOG_DIR, 'multi.log'), 'utf-8');
             expect(content).toContain('message 1');
@@ -101,7 +105,7 @@ describe('FileAppender', () => {
             const entry = makeEntry(LogLevel.INFO, 'with context');
             entry.context = { userId: 42, action: 'login' };
             appender.handle(entry);
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const content = fs.readFileSync(path.join(TEST_LOG_DIR, 'context.log'), 'utf-8');
             expect(content).toContain('userId');
@@ -118,7 +122,7 @@ describe('FileAppender', () => {
             const entry = makeEntry(LogLevel.ERROR, 'something failed');
             entry.error = new Error('database connection failed');
             appender.handle(entry);
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const content = fs.readFileSync(path.join(TEST_LOG_DIR, 'error.log'), 'utf-8');
             expect(content).toContain('something failed');
@@ -138,7 +142,7 @@ describe('FileAppender', () => {
             for (let i = 0; i < 5; i++) {
                 appender.handle(makeEntry(LogLevel.INFO, `line ${i} with enough content to fill the file`));
             }
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await appender.flush();
 
             const files = fs.readdirSync(TEST_LOG_DIR);
             const rotatedFiles = files.filter(f => f.startsWith('rotate.'));
@@ -156,7 +160,7 @@ describe('FileAppender', () => {
             for (let i = 0; i < 10; i++) {
                 appender.handle(makeEntry(LogLevel.INFO, `filling up the log file iteration ${i}`));
             }
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await appender.flush();
 
             const files = fs.readdirSync(TEST_LOG_DIR).sort();
             const archives = files.filter(f => f.match(/numbered\.\d+\.log/));
@@ -183,7 +187,7 @@ describe('FileAppender', () => {
             for (let i = 0; i < 15; i++) {
                 appender.handle(makeEntry(LogLevel.INFO, `prune test message number ${i} filler data`));
             }
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await appender.flush();
 
             const files = fs.readdirSync(TEST_LOG_DIR);
             const archives = files.filter(f => f.startsWith('prune.') && f !== 'prune.log');
@@ -214,7 +218,7 @@ describe('FileAppender', () => {
             });
 
             appender.handle(makeEntry(LogLevel.INFO, 'formatted'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const content = fs.readFileSync(path.join(TEST_LOG_DIR, 'format.log'), 'utf-8');
             // Should contain the default format parts
@@ -232,7 +236,7 @@ describe('FileAppender', () => {
             });
 
             appender.handle(makeEntry(LogLevel.WARN, 'custom'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const content = fs.readFileSync(path.join(TEST_LOG_DIR, 'custom-format.log'), 'utf-8');
             expect(content).toContain('[WARN] custom');
@@ -252,7 +256,7 @@ describe('FileAppender', () => {
             for (let i = 0; i < 8; i++) {
                 appender.handle(makeEntry(LogLevel.INFO, `compressed test line ${i} with extra text to exceed 60 bytes`));
             }
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await appender.flush();
 
             const files = fs.readdirSync(TEST_LOG_DIR);
             const gzFiles = files.filter(f => f.endsWith('.gz'));
@@ -275,7 +279,7 @@ describe('FileAppender', () => {
             });
 
             appender.handle(makeEntry(LogLevel.INFO, 'daily message'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const files = fs.readdirSync(TEST_LOG_DIR);
             const dailyFile = files.find(f => f.startsWith('daily-app-') && f.endsWith('.log'));
@@ -301,13 +305,13 @@ describe('FileAppender', () => {
             });
 
             appender.handle(makeEntry(LogLevel.INFO, 'first day'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             // Simulate the date rolling over to tomorrow
             (appender as any).currentFileDateMarker = '2000-01-01';
 
             appender.handle(makeEntry(LogLevel.INFO, 'second day'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             const files = fs.readdirSync(TEST_LOG_DIR);
             expect(files.length).toBeGreaterThanOrEqual(1);
@@ -332,7 +336,7 @@ describe('FileAppender', () => {
                 },
             });
             appender.handle(makeEntry(LogLevel.INFO, 'empty'));
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await appender.flush();
             // File should not even be appended to
             expect(fs.existsSync(path.join(TEST_LOG_DIR, 'empty.log'))).toBe(false);
         });
@@ -346,7 +350,7 @@ describe('FileAppender', () => {
                 fileName: 'fail.log',
             });
             appender.handle(makeEntry(LogLevel.INFO, 'fail'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 'Error writing to log file:',
@@ -367,10 +371,10 @@ describe('FileAppender', () => {
                 maxSize: 10,
             });
             appender.handle(makeEntry(LogLevel.INFO, 'first large entry'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             appender.handle(makeEntry(LogLevel.INFO, 'second entry causing rotation failure'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to rotate log file'),
@@ -394,11 +398,11 @@ describe('FileAppender', () => {
 
             // Write entries to trigger rotations and pruning
             appender.handle(makeEntry(LogLevel.INFO, 'entry 1'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
             appender.handle(makeEntry(LogLevel.INFO, 'entry 2'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
             appender.handle(makeEntry(LogLevel.INFO, 'entry 3'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to delete old log file:'),
@@ -424,9 +428,9 @@ describe('FileAppender', () => {
             });
 
             appender.handle(makeEntry(LogLevel.INFO, 'large entry 1'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
             appender.handle(makeEntry(LogLevel.INFO, 'large entry 2'));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await appender.flush();
 
             expect(consoleErrorSpy).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to compress rotated log file'),
