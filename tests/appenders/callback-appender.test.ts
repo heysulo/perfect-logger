@@ -1,4 +1,4 @@
-import { CallbackAppender } from '../../src/appenders/CallbackAppender';
+import { CallbackAppender } from '../../src/appenders/callback-appender';
 import { LogLevel } from '../../src/constants';
 import { LogEntry } from '../../src/core/types';
 

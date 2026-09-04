@@ -1,4 +1,4 @@
-import { LogFormatter } from '../../src/utils/LogFormatter';
+import { LogFormatter } from '../../src/utils/log-formatter';
 import { LogLevel } from '../../src/constants';
 import { LogEntry } from '../../src/core/types';
 
@@ -22,6 +22,14 @@ describe('LogFormatter', () => {
             // 14:30 UTC on Oct 28 is still Oct 28 in New York (10:30 AM)
             const formatter = new LogFormatter(undefined, 'America/New_York');
             expect(formatter.formatDate(new Date())).toBe('2023/10/28');
+        });
+
+        it('should handle empty or missing date parts in formatDate', () => {
+            const formatter = new LogFormatter(undefined, 'UTC');
+            (formatter as any).dateFormatter = {
+                formatToParts: () => [],
+            };
+            expect(formatter.formatDate(new Date())).toBe('undefined/undefined/undefined');
         });
     });
 

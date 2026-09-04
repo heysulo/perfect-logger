@@ -5,10 +5,14 @@
  * @param space A String or Number object that's used to insert white space into the output JSON string for readability purposes.
  * @returns A JSON string.
  */
-export function safeStringify(obj: unknown, replacer?: ((key: string, value: any) => any) | null, space?: string | number): string {
-    const cache = new Set();
+export function safeStringify(
+    obj: unknown,
+    replacer?: ((key: string, value: unknown) => unknown) | null,
+    space?: string | number
+): string {
+    const cache = new Set<unknown>();
     
-    const combinedReplacer = (key: string, value: any) => {
+    const combinedReplacer = (key: string, value: unknown): unknown => {
         if (typeof value === 'object' && value !== null) {
             if (cache.has(value)) {
                 return '[Circular]';
@@ -23,5 +27,5 @@ export function safeStringify(obj: unknown, replacer?: ((key: string, value: any
         return value;
     };
 
-    return JSON.stringify(obj, combinedReplacer, space);
+    return JSON.stringify(obj, combinedReplacer as (key: string, value: unknown) => unknown, space);
 }

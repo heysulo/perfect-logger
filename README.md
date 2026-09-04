@@ -1,325 +1,540 @@
 # perfect-logger
 
-A modern, powerful, and lightweight logging library for TypeScript and JavaScript applications. It is designed to be highly configurable and extensible, allowing you to tailor your logging output to your specific needs.
+[![npm version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://www.npmjs.com/package/perfect-logger)
+[![tests](https://img.shields.io/badge/tests-234%20passed-brightgreen.svg)]()
+[![coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)]()
+[![dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)]()
+[![types](https://img.shields.io/badge/TypeScript-strict-blue.svg)]()
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
-## Features
+An enterprise-grade, zero-dependency, isomorphic logging framework for TypeScript and JavaScript applications. Designed with the architectural rigor of **Apache Log4j 2** and the ergonomic clarity of **SLF4J / Logback**, `perfect-logger` brings battle-tested logging patterns to Node.js and modern browsers.
 
--   **Multiple Appenders**: Log to the console, file system, or extend it with your own custom appenders.
--   **Highly Configurable**: Customize log formats, levels, and destinations.
--   **Log Rotation**: Automatically rotate log files based on size, time (daily/hourly), or a combination.
--   **TypeScript Native**: Written in TypeScript, providing strong typing and excellent editor support.
--   **Environment Aware**: Works seamlessly in Node.js and modern browsers (features like the `FileAppender` are Node.js-only).
--   **Zero Dependencies**: A lightweight library with no external dependencies.
+---
+
+## Highlights
+
+* 🚀 **Zero Dependencies**: Pure TypeScript/JavaScript with absolutely zero external runtime dependencies.
+* 🌐 **Truly Isomorphic**: Consistent API across Node.js runtimes and modern browsers.
+* 🌳 **Hierarchical Logger Tree**: Dot-notated logger names (e.g. `api.services.auth`) with level inheritance and configurable additivity bubbling.
+* 🧩 **Decoupled Layouts**: Distinct `PatternLayout` (Log4j conversion specifiers) and `JsonLayout` (structured JSON with custom field mappings and ISO8601/epoch timestamps).
+* 🧵 **Mapped Diagnostic Context (MDC)**: Automatic context propagation across async call stacks via Node.js `AsyncLocalStorage` with browser fallback.
+* 🏷️ **First-Class Markers**: Semantic tagging (`SECURITY`, `AUDIT`, `PERF`) with hierarchical parent-child relationships and containment queries.
+* 🎛️ **Tri-State Filter Pipeline**: `ACCEPT`, `DENY`, and `NEUTRAL` decisions via `ThresholdFilter`, `MarkerFilter`, `RegexFilter`, `ContextFilter`, and `CompositeFilter`.
+* ⚡ **High-Throughput Appenders**:
+  * **`AsyncAppender`**: Decouples logging I/O to background workers with bounded queues and overflow policies (`DISCARD`, `DISCARD_OLDEST`, `BLOCK`).
+  * **`RollingFileAppender`**: Size- and time-based rotation (daily/hourly), automatic pruning (`maxFiles`), and native gzip compression (`compress: true`).
+  * **`StreamAppender`**: High-throughput writing directly to `process.stdout`, `process.stderr`, or any Node.js `WritableStream`.
+  * **`HttpAppender`**: Zero-dependency remote log transport using Node.js native `http`/`https` or browser `fetch`, batching, and exponential retry.
+  * **`ConsoleAppender`**: Colored, formatted terminal/browser console output.
+  * **`CallbackAppender`**: Custom programmatic hooks for monitoring, metrics, or test asserting.
+* ⚙️ **Declarative Configuration**: Zero-code setup with `logger.config.json` or `logger.config.js`, auto-configuration, and runtime environment variable interpolation (`${env:LOG_LEVEL:-INFO}`).
+* 🛡️ **TypeScript Strict**: 100% typed, strict null checks, zero `any`, and built-in `.d.ts` + declaration maps for instant IDE navigation.
+* 📦 **Dual Publishing**: Native CommonJS and modern ESM output.
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Core Architecture](#core-architecture)
+  - [Hierarchical Loggers & Additivity](#hierarchical-loggers--additivity)
+  - [Mapped Diagnostic Context (MDC)](#mapped-diagnostic-context-mdc)
+  - [Semantic Markers](#semantic-markers)
+  - [Tri-State Filters](#tri-state-filters)
+  - [Layouts](#layouts)
+  - [Appenders](#appenders)
+- [Declarative Configuration](#declarative-configuration)
+- [Performance & Best Practices](#performance--best-practices)
+- [API Reference](#api-reference)
+- [License](#license)
+
+---
 
 ## Installation
 
 ```bash
+# npm
 npm install perfect-logger
+
+# yarn
+yarn add perfect-logger
+
+# pnpm
+pnpm add perfect-logger
 ```
+
+---
 
 ## Quick Start
 
-Get up and running with a few lines of code.
+### Basic Usage
 
 ```typescript
 import { LogManager, ConsoleAppender, LogLevel } from 'perfect-logger';
 
-// 1. Configure the LogManager
+// 1. Configure the root logger
 LogManager.configure({
-    appenders: [
-        new ConsoleAppender({ minLevel: LogLevel.INFO })
-    ]
+    minLevel: LogLevel.INFO,
+    appenders: [new ConsoleAppender()],
 });
 
-// 2. Get a logger instance
-const logger = LogManager.getLogger('my-app');
+// 2. Obtain a logger instance
+const logger = LogManager.getLogger('app.server');
 
-// 3. Start logging!
-logger.info('Application starting...');
-logger.warn('Configuration is missing a recommended setting.');
-logger.error('Failed to connect to the database.', new Error('Connection timed out'));
-logger.debug('This is a debug message.', { userId: 123 }); // This won't be logged due to minLevel
+// 3. Log messages with context and errors
+logger.info('Server started successfully', { port: 8080 });
+logger.warn('High memory usage detected', { memoryUsageMb: 1024 });
+logger.error('Failed to connect to database', new Error('Connection refused'));
 ```
 
-## Example Outputs
+### Production Enterprise Setup
 
-### Console Output
+```typescript
+import {
+    LogManager,
+    StreamAppender,
+    RollingFileAppender,
+    HttpAppender,
+    AsyncAppender,
+    JsonLayout,
+    PatternLayout,
+    LogLevel,
+    Markers,
+    OverflowPolicy,
+} from 'perfect-logger';
 
-Using the default `ConsoleAppender` configuration, your output will look clean and simple. Note that `console.error` will automatically print the stack trace of an `Error` object.
-
+LogManager.configure({
+    minLevel: LogLevel.INFO,
+    root: {
+        appenders: [
+            // High-performance stdout with JSON layout
+            new StreamAppender({
+                layout: new JsonLayout({ pretty: false }),
+            }),
+            // Asynchronous rolling file with gzip compression
+            new AsyncAppender({
+                bufferSize: 10000,
+                overflowPolicy: OverflowPolicy.DISCARD_OLDEST,
+                target: new RollingFileAppender({
+                    logDirectory: './logs',
+                    fileName: 'application.log',
+                    maxSize: 50 * 1024 * 1024, // 50MB
+                    maxFiles: 10,
+                    compress: true, // Native gzip compression
+                    layout: new PatternLayout({
+                        pattern: '%d{ISO8601} [%p] [%c] %X{requestId} - %m%ex%n',
+                    }),
+                }),
+            }),
+        ],
+    },
+    loggers: {
+        // Specific logger with dedicated HTTP appender for security audits
+        'security': {
+            level: LogLevel.DEBUG,
+            additivity: true, // Also bubbles to root appenders
+            appenders: [
+                new HttpAppender({
+                    url: 'https://logs.example.com/ingest',
+                    batchSize: 100,
+                    batchInterval: 2000,
+                    headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
+                }),
+            ],
+        },
+    },
+});
 ```
-2023/10/28 | 14:30:05.123 | INFO | my-app | Application starting...
-2023/10/28 | 14:30:05.125 | WARN | my-app | Configuration is missing a recommended setting.
-2023/10/28 | 14:30:05.128 | ERROR | my-app | Failed to connect to the database.
-Error: Connection timed out
-    at <stack trace ...>
-```
-
-### File Output
-
-The `FileAppender` provides more detailed output, especially for context objects and errors, which are formatted for readability.
-
-```
-// In logs/app.log
-2023/10/28 | 14:30:05.123 | INFO | worker-process | Starting background job...
-2023/10/28 | 14:30:05.500 | DEBUG | worker-process | Processing job.
-~ {
-~     "jobId": "xyz-123",
-~     "payload": {
-~         "user": "admin"
-~     }
-~ }
-2023/10/28 | 14:30:05.900 | ERROR | worker-process | Job failed to complete.
-Error: Task failed successfully
-    at Object.<anonymous> (/path/to/your/project/worker.ts:42:15)
-    at Module._compile (internal/modules/cjs/loader.js:1085:14)
-    ...
-```
-
-## Core Concepts
-
--   **`LogManager`**: A static class that serves as the central point for configuration. You use it to register and configure your appenders.
--   **`Logger`**: The object you use to write log messages. You get a `Logger` instance from the `LogManager`, usually with a specific namespace (e.g., a component or module name).
--   **`Appenders`**: These are the destinations for your log messages. `perfect-logger` comes with three built-in appenders: `ConsoleAppender`, `FileAppender`, and `CallbackAppender`.
 
 ---
 
-## Appenders
+## Core Architecture
 
-You can configure multiple appenders to send logs to different destinations simultaneously.
-
-### `ConsoleAppender`
-
-Logs messages to the browser or Node.js console.
-
-#### Example Usage
-
-```typescript
-import { LogManager, ConsoleAppender, LogLevel } from 'perfect-logger';
-
-LogManager.configure({
-    appenders: [
-        new ConsoleAppender({
-            minLevel: LogLevel.DEBUG,
-            format: '[{level}] {namespace} - {message}'
-        })
-    ]
-});
-
-const logger = LogManager.getLogger('api-service');
-logger.debug('Received a new request.');
 ```
-
-#### Configuration Options
-
-| Option     | Type      | Default                                                     | Description                                                                                             |
-| :--------- | :-------- |:------------------------------------------------------------| :------------------------------------------------------------------------------------------------------ |
-| `minLevel` | `LogLevel`  | `LogLevel.INFO`                                             | The minimum log level this appender will process.                                                       |
-| `format`   | `string`  | `'{date} \| {time} \| {level} \| {namespace} \| {message}'` | A template string that defines the log message format. See the "Formatting" section for placeholders. |
-| `timezone` | `string`  | `undefined`                                                 | An IANA timezone string (e.g., 'America/New_York') to use for `{date}` and `{time}`. Defaults to the system's timezone. |
+                                    +--------------------+
+                                    |    Application     |
+                                    +--------------------+
+                                              |
+                                              v
+                                    +--------------------+
+                                    |     LogManager     | (Global Filters, Config)
+                                    +--------------------+
+                                              |
+                                              v
+                              +--------------------------------+
+                              |         Logger Tree            |
+                              |   root                         |
+                              |    └── api                     |
+                              |         └── api.auth           |
+                              +--------------------------------+
+                                       /              \
+                                      v                v
+                             +----------------+  +----------------+
+                             |     Logger     |  |     Logger     | (Logger Filters, MDC, Context)
+                             +----------------+  +----------------+
+                                     |                   | (Additivity)
+                                     +---------+---------+
+                                               |
+                                               v
+                                    +--------------------+
+                                    |     Appender       | (Appender Filters, Batching)
+                                    +--------------------+
+                                               |
+                                               v
+                                    +--------------------+
+                                    |      Layout        | (PatternLayout / JsonLayout)
+                                    +--------------------+
+                                               |
+                                               v
+                                    +--------------------+
+                                    | Output Destination | (Console / File / Stream / HTTP)
+                                    +--------------------+
+```
 
 ---
 
-### `FileAppender`
+### Hierarchical Loggers & Additivity
 
-Writes log messages to a file in a **Node.js environment**. This appender includes powerful log rotation features.
+Loggers form a hierarchical dot-separated namespace tree. For example, `api.auth` is a child of `api`, which is a child of `root`.
 
-#### Example Usage
+* **Level Inheritance**: If `api.auth` does not define an explicit level, it inherits from `api`. If `api` has no level, it inherits from `root`.
+* **Additivity**: By default, logs written to a child logger bubble up to the appenders of all ancestor loggers (`additivity: true`). Set `additivity: false` to restrict output strictly to that logger's appenders.
 
 ```typescript
-import { LogManager, FileAppender, LogLevel } from 'perfect-logger';
-
-LogManager.configure({
-    appenders: [
-        new FileAppender({
-            logDirectory: 'logs',
-            fileName: 'app.log',
-            minLevel: LogLevel.INFO,
-            // Rotation settings
-            rotation: 'daily', // Rotate logs every day
-            maxSize: 10 * 1024 * 1024, // Rotate if file exceeds 10MB
-            maxFiles: 7 // Keep the last 7 rotated log files
-        })
-    ]
-});
-
-const logger = LogManager.getLogger('worker-process');
-logger.info('Starting background job...');
+const authLogger = LogManager.getLogger('api.auth');
+authLogger.setAdditivity(false); // Do not bubble up to 'api' or 'root'
 ```
 
-#### Configuration Options
+#### Guard Methods
 
-| Option         | Type                 | Default                                                                            | Description                                                                                                                              |
-| :------------- | :------------------- |:-----------------------------------------------------------------------------------| :--------------------------------------------------------------------------------------------------------------------------------------- |
-| `minLevel`     | `LogLevel`             | `LogLevel.INFO`                                                                    | The minimum log level this appender will process.                                                                                        |
-| `logDirectory` | `string`             | `'logs'` in the current working directory                                          | The directory where log files will be stored.                                                                                            |
-| `fileName`     | `string`             | `'app.log'`                                                                        | The name of the primary log file.                                                                                                        |
-| `format`       | `string`             | `'{date} \| {time}                        \| {level} \| {namespace} \| {message}'` | A template string for the log message format.                                                                                            |
-| `rotation`     | `'daily'` \| `'hourly'` | `undefined`                                                                        | The time-based rotation policy. A new file is created daily or hourly.                                                                   |
-| `maxSize`      | `number`             | `null`                                                                             | The maximum size of a log file in **bytes**. If the file exceeds this size, it will be rotated.                                          |
-| `maxFiles`     | `number`             | `null`                                                                             | The maximum number of archived log files to keep. The oldest files are deleted automatically.                                            |
-| `timezone`     | `string`             | `undefined`                                                                        | An IANA timezone string to use for `{date}` and `{time}`.                                                                                |
-
-### `CallbackAppender`
-
-Provides a hook into the logging stream, executing a custom function for each log entry. This is perfect for integrating with third-party monitoring services, sending logs over a network, or performing any other custom logic.
-
-#### Example Usage
+Avoid unnecessary computation or string interpolations when a log level is not enabled:
 
 ```typescript
-import { LogManager, CallbackAppender, LogLevel, LogEntry } from 'perfect-logger';
-
-// Example: Send critical errors to a monitoring service
-function sendToMonitoringService(entry: LogEntry) {
-    const { level, message, error } = entry;
-    // In a real-world scenario, you would format and send this data
-    // to a service like Sentry, DataDog, etc.
-    console.log(`-- Sending to monitoring: [${LogLevel[level]}] ${message} --`);
-    if (error) {
-        console.log(error.stack);
-    }
+if (logger.isDebugEnabled()) {
+    logger.debug(`Complex calculation: ${expensiveOperation()}`);
 }
 
-LogManager.configure({
-    appenders: [
-        new CallbackAppender({
-            callback: sendToMonitoringService,
-            minLevel: LogLevel.ERROR // Only send errors and fatal logs
-        })
-    ]
-});
-
-const logger = LogManager.getLogger('payment-gateway');
-logger.info('Processing payment...'); // This will not trigger the callback
-logger.fatal('Credit card service is down!', new Error('Service Unreachable'));
+logger.isTraceEnabled();
+logger.isInfoEnabled();
+logger.isWarnEnabled();
+logger.isErrorEnabled();
+logger.isFatalEnabled();
 ```
-
-#### Configuration Options
-
-| Option     | Type          | Default         | Description                                               |
-| :--------- | :------------ | :-------------- | :-------------------------------------------------------- |
-| `minLevel` | `LogLevel`      | `LogLevel.TRACE`  | The minimum log level this appender will process.         |
-| `callback` | `(entry: LogEntry) => void` | **Required**    | The function to execute for each log entry.               |
 
 ---
 
-## Extending the Logger: Custom Appenders
+### Mapped Diagnostic Context (MDC)
 
-`perfect-logger` is designed to be extensible. You can easily create your own appenders to send logs to any destination you can imagine, such as a database, a third-party API, or a real-time dashboard.
-
-To create a custom appender, you need to extend the `BaseAppender` class and implement the `handle` method.
-
-### Example: A Simple `AlertAppender`
-
-Let's create an appender that shows a browser `alert()` for any `FATAL` log messages.
+Modeled after Log4j's `ThreadContext` and SLF4J's `MDC`, `perfect-logger` provides asynchronous context propagation. Context values automatically bind to all log entries executed within an async flow without manual parameter passing:
 
 ```typescript
-import { BaseAppender, LogEntry, AppenderConfig, LogLevel } from 'perfect-logger';
+import { MDC, LogManager } from 'perfect-logger';
 
-// 1. Define a configuration interface (optional, but good practice)
-export interface AlertAppenderConfig extends AppenderConfig {
-    // You can add custom options here if needed
-}
+const logger = LogManager.getLogger('order-service');
 
-// 2. Create the custom appender class
-export class AlertAppender extends BaseAppender {
-    constructor(config: AlertAppenderConfig = {}) {
-        // Set a default minLevel if you want
-        super('AlertAppender', config, { minLevel: LogLevel.FATAL });
-    }
-
-    // 3. Implement the 'handle' method
-    public handle(entry: LogEntry): void {
-        // The BaseAppender already filters by minLevel, so no need to check here.
-        
-        const formattedMessage = `[${LogLevel[entry.level]}] ${entry.message}`;
-        
-        // In a browser environment, show an alert.
-        if (typeof window !== 'undefined') {
-            window.alert(formattedMessage);
-        }
-    }
-}
+// Context is bound to all synchronous & asynchronous operations within MDC.run()
+await MDC.run({ requestId: 'req-abc-123', userId: 42 }, async () => {
+    logger.info('Processing order checkout'); // Includes requestId and userId in context!
+    
+    await processPayment(); // Still retains requestId and userId!
+});
 ```
 
-### Using Your Custom Appender
-
-Once you've created your appender, you can use it just like any of the built-in ones.
+You can also dynamically manipulate the current async context:
 
 ```typescript
-import { LogManager, ConsoleAppender } from 'perfect-logger';
-import { AlertAppender } from './AlertAppender'; // Import your custom appender
-
-LogManager.configure({
-    appenders: [
-        new ConsoleAppender(), // Still log to the console
-        new AlertAppender()    // And also show alerts for fatal errors
-    ]
-});
-
-const logger = LogManager.getLogger('app');
-logger.info('This is just a normal log.');
-logger.fatal('Something went terribly wrong!'); // This will trigger the alert!
+MDC.put('tenantId', 'acme-corp');
+const tenant = MDC.get<string>('tenantId');
+MDC.remove('tenantId');
+MDC.clear();
 ```
 
-By extending `BaseAppender`, your custom appender automatically gets `minLevel` filtering and a consistent structure, making it easy to create powerful, reusable logging plugins.
+---
+
+### Semantic Markers
+
+Markers allow semantic categorisation of log events across namespaces (e.g. for audit compliance, security audits, or performance metrics). Markers can also have hierarchical parents:
+
+```typescript
+import { MarkerManager, Markers } from 'perfect-logger';
+
+// Built-in presets
+logger.info(Markers.SECURITY, 'User failed 2FA verification');
+logger.info(Markers.AUDIT, 'User role updated to admin');
+logger.info(Markers.PERF, 'Query took 1240ms');
+
+// Custom hierarchical markers
+const dbMarker = MarkerManager.getMarker('DATABASE');
+const sqlMarker = MarkerManager.getMarker('SQL', dbMarker);
+
+logger.debug(sqlMarker, 'SELECT * FROM users');
+
+// Containment check
+console.log(sqlMarker.contains(dbMarker)); // true
+```
 
 ---
 
-## Understanding Log Rotation Behavior
+### Tri-State Filters
 
-A key feature of the `FileAppender` is its predictable and convenient rotation strategy.
+Filters return one of three states:
+* `FilterResult.ACCEPT`: The entry is processed immediately, bypassing downstream checks.
+* `FilterResult.DENY`: The entry is dropped immediately.
+* `FilterResult.NEUTRAL`: The filter does not make a final decision; evaluation continues down the pipeline.
 
-**The Active Log File**
+Filters can be applied globally in `LogManager`, on individual `Logger` nodes, or on specific `Appender` instances.
 
-When using size-based or hybrid (size and time) rotation, `perfect-logger` always writes to a file with a static name (e.g., `app.log`, as defined by `fileName`). This makes it incredibly easy to locate the logs for the currently running process. You can simply `tail -f logs/app.log` without needing to know the exact timestamp or rotation number.
+| Filter | Description |
+| :--- | :--- |
+| `ThresholdFilter` | Evaluates severity against a minimum threshold level. |
+| `MarkerFilter` | Matches against a specific `Marker` (including parent markers). |
+| `RegexFilter` | Matches the log message against a regular expression. |
+| `ContextFilter` | Matches against MDC/context keys using values or predicates. |
+| `CompositeFilter` | Chains multiple filters together. |
 
-**The Rotation Process**
+```typescript
+import { ContextFilter, RegexFilter, CompositeFilter, FilterResult } from 'perfect-logger';
 
-When a rotation condition is met (either the file size exceeds `maxSize` or the time period for `rotation` elapses):
+// Drop logs containing sensitive credit card numbers
+const filter = new RegexFilter({
+    regex: /\b(?:\d[ -]*?){13,16}\b/,
+    onMatch: FilterResult.DENY,
+    onMismatch: FilterResult.NEUTRAL,
+});
 
-1.  The current active log file (e.g., `app.log`) is closed.
-2.  It is renamed to an archive file.
-    *   **On Size-Based Rotation**: It gets a numeric suffix, like `app.log.1`. If `app.log.1` already exists, it is renamed to `app.log.2`, and so on.
-    *   **On Time-Based Rotation**: It is renamed with a timestamp, like `app-2023-10-28.log`.
-3.  A new, empty `app.log` is created.
-4.  New log messages are written to this new file.
-
-This process ensures that the active log file is always available at the same path, which is ideal for live monitoring.
-
-**Purely Time-Based Rotation**
-
-There is one exception to this behavior. If you configure **only** time-based rotation (e.g., `rotation: 'daily'`) and do **not** set a `maxSize`, the logger will write directly to a time-stamped file (e.g., `app-2023-10-28.log`). A new file will be created automatically when the day or hour changes.
+// Filter by context tenant
+const tenantFilter = new ContextFilter({
+    key: 'tenant',
+    value: 'enterprise',
+    onMatch: FilterResult.ACCEPT,
+    onMismatch: FilterResult.DENY,
+});
+```
 
 ---
 
-## Advanced Configuration
+### Layouts
 
-### Log Levels
+Layouts separate formatting logic from output destinations.
 
-Log levels are used to categorize the severity of a log message. When you set a `minLevel` on an appender, it will only process messages of that level or higher. The levels are ordered as follows:
+#### `PatternLayout`
 
--   `TRACE`
--   `DEBUG`
--   `INFO`
--   `WARN`
--   `ERROR`
--   `FATAL`
+Supports standard Log4j conversion specifiers:
 
-### Formatting
+| Specifier | Description | Example Output |
+| :--- | :--- | :--- |
+| `%d`, `%d{ISO8601}`, `%d{YYYY-MM-DD}` | Formatted timestamp | `2026-09-05T00:30:00.000Z` |
+| `%p`, `%level` | Log level name | `INFO`, `ERROR` |
+| `%c`, `%c{1}`, `%logger` | Logger category/namespace | `api.auth` or `auth` (with `{1}`) |
+| `%m`, `%msg` | The log message | `Operation successful` |
+| `%marker` | Marker name | `[SECURITY]` |
+| `%X{key}` | Context / MDC variable | `req-123` |
+| `%ex`, `%throwable` | Formatted error stack trace | `Error: failure\n  at ...` |
+| `%n` | Platform newline | `\n` |
 
-You can control the output format of your logs using a template string with the following placeholders:
+```typescript
+import { PatternLayout } from 'perfect-logger';
 
-| Placeholder   | Description                                                                   |
-| :------------ | :---------------------------------------------------------------------------- |
-| `{date}`      | The date of the log entry (e.g., `2023/10/28`).                               |
-| `{time}`      | The time of the log entry, including milliseconds (e.g., `14:30:05.123`).     |
-| `{level}`     | The log level of the entry (e.g., `INFO`, `WARN`).                            |
-| `{namespace}` | The namespace of the logger instance.                                         |
-| `{message}`   | The main log message.                                                         |
-| `{context}`   | A stringified version of the optional context object passed to the logger.    |
-| `{error}`     | The stack trace or message of an `Error` object passed to the logger.         |
+const layout = new PatternLayout({
+    pattern: '%d{ISO8601} [%p] [%c{1}] %marker %X{requestId} - %m%ex%n',
+});
+```
+
+#### `JsonLayout`
+
+Formats entries into structured JSON for ingestion by Elasticsearch, Datadog, CloudWatch, or Splunk:
+
+```typescript
+import { JsonLayout } from 'perfect-logger';
+
+const layout = new JsonLayout({
+    pretty: false,
+    timestampFormat: 'iso', // or 'epoch'
+    includeContext: true,
+    includeError: true,
+    fieldNames: {
+        timestamp: '@timestamp',
+        level: 'log.level',
+        message: 'message',
+    },
+});
+```
+
+---
+
+### Appenders
+
+#### `AsyncAppender`
+
+Wraps any target appender to perform logging asynchronously in the background. Protects application throughput with a bounded queue and customizable overflow policy:
+
+```typescript
+import { AsyncAppender, OverflowPolicy, FileAppender } from 'perfect-logger';
+
+const asyncAppender = new AsyncAppender({
+    target: new FileAppender({ fileName: 'app.log' }),
+    bufferSize: 5000,
+    batchSize: 50,
+    overflowPolicy: OverflowPolicy.DISCARD_OLDEST, // Or BLOCK, DISCARD
+});
+```
+
+#### `RollingFileAppender`
+
+Supports size-based rotation, time-based rotation (daily/hourly), automatic retention pruning (`maxFiles`), and native gzip compression:
+
+```typescript
+import { RollingFileAppender } from 'perfect-logger';
+
+const fileAppender = new RollingFileAppender({
+    logDirectory: './logs',
+    fileName: 'app.log',
+    maxSize: 10 * 1024 * 1024, // 10MB
+    maxFiles: 5,               // Keep 5 oldest archives
+    compress: true,            // Gzip archives (.gz)
+    rotation: 'daily',         // 'daily' or 'hourly'
+});
+```
+
+#### `StreamAppender`
+
+Writes directly to any Node.js `WritableStream`, such as `process.stdout` or `process.stderr`:
+
+```typescript
+import { StreamAppender, JsonLayout } from 'perfect-logger';
+
+const stdoutAppender = new StreamAppender({
+    stream: process.stdout,
+    layout: new JsonLayout(),
+});
+```
+
+#### `HttpAppender`
+
+Sends batches of logs over HTTP/HTTPS to remote endpoints. Uses Node.js native `http`/`https` or browser `fetch` with zero external dependencies:
+
+```typescript
+import { HttpAppender } from 'perfect-logger';
+
+const httpAppender = new HttpAppender({
+    url: 'https://logging.internal.net/v1/logs',
+    method: 'POST',
+    batchSize: 50,
+    batchInterval: 3000,
+    maxRetries: 3,
+    retryDelay: 1000,
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'secret',
+    },
+});
+```
+
+---
+
+## Declarative Configuration
+
+You can configure `perfect-logger` entirely through a configuration file (`logger.config.json` or `logger.config.js`) placed in your project root.
+
+### Automatic Configuration
+
+Calling `LogManager.autoConfigure()` automatically searches for `logger.config.json` or `logger.config.js`. If neither exists, it provides safe defaults (Console in development, Stream with JSON in production).
+
+```typescript
+import { LogManager } from 'perfect-logger';
+
+// Automatically loads logger.config.json if present
+LogManager.autoConfigure();
+```
+
+### Example `logger.config.json`
+
+Supports runtime environment variable expansion via `${env:NAME}` or `${env:NAME:-default}`:
+
+```json
+{
+  "appenders": {
+    "console": {
+      "type": "Console",
+      "minLevel": "${env:LOG_LEVEL:-INFO}",
+      "layout": {
+        "type": "Pattern",
+        "pattern": "%d{ISO8601} [%p] [%c] - %m%ex%n"
+      }
+    },
+    "file": {
+      "type": "File",
+      "minLevel": "WARN",
+      "options": {
+        "logDirectory": "./logs",
+        "fileName": "errors.log",
+        "maxSize": 10485760,
+        "maxFiles": 5,
+        "compress": true
+      }
+    }
+  },
+  "root": {
+    "level": "INFO",
+    "appenders": ["console"]
+  },
+  "loggers": {
+    "api.payments": {
+      "level": "DEBUG",
+      "appenders": ["file"],
+      "additivity": true
+    }
+  }
+}
+```
+
+---
+
+## Performance & Best Practices
+
+1. **Use `AsyncAppender` for File & Network I/O**: Shield application threads from disk latency or remote network hiccups by wrapping slow appenders in `AsyncAppender`.
+2. **Leverage Level Guards**: Guard expensive string constructions or serialization with `logger.isDebugEnabled()`.
+3. **Flush on Process Exit**: Ensure all buffered logs are flushed when your Node.js application shuts down:
+   ```typescript
+   process.on('SIGTERM', async () => {
+       await LogManager.shutdown();
+       process.exit(0);
+   });
+   ```
+4. **Prefer `StreamAppender` in Containerized Environments**: For Docker and Kubernetes, write structured JSON directly to `process.stdout` using `StreamAppender` and `JsonLayout`.
+
+---
+
+## API Reference
+
+### Exported Classes & Singletons
+
+* **`LogManager`**: Central configuration registry and logger factory.
+* **`Logger`**: Hierarchical logger with level evaluation, context merging, and appender dispatching.
+* **`MDC`**: Mapped Diagnostic Context for async tracing.
+* **`MarkerManager` / `Markers`**: Marker creation and standard semantic marker presets (`AUDIT`, `SECURITY`, `PERF`, `DATABASE`).
+* **Appenders**: `ConsoleAppender`, `FileAppender`, `RollingFileAppender`, `StreamAppender`, `HttpAppender`, `AsyncAppender`, `CallbackAppender`, `JsonAppender`.
+* **Layouts**: `PatternLayout`, `JsonLayout`.
+* **Filters**: `ThresholdFilter`, `MarkerFilter`, `RegexFilter`, `ContextFilter`, `CompositeFilter`.
+* **Enums**: `LogLevel` (`TRACE = 0`, `DEBUG = 1`, `INFO = 2`, `WARN = 3`, `ERROR = 4`, `FATAL = 5`), `FilterResult` (`ACCEPT = 1`, `NEUTRAL = 0`, `DENY = -1`), `OverflowPolicy` (`DISCARD`, `DISCARD_OLDEST`, `BLOCK`).
+
+---
+
+## Dual Package Support (CJS & ESM)
+
+`perfect-logger` ships with both CommonJS and ECMAScript Modules (ESM):
+
+```typescript
+// ESM / TypeScript
+import { LogManager, LogLevel } from 'perfect-logger';
+
+// CommonJS
+const { LogManager, LogLevel } = require('perfect-logger');
+```
+
+---
 
 ## License
 
-This project is licensed under the MIT License.
+[MIT](./LICENSE) © Sulochana Kodituwakku

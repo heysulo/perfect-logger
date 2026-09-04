@@ -1,19 +1,24 @@
 import { LogEntry, ConsoleAppenderConfig } from '../core/types';
-import { BaseAppender } from './BaseAppender';
+import { BaseAppender } from './base-appender';
 import { LogLevel } from '../constants';
-import { LogFormatter } from '../utils/LogFormatter';
-import { safeStringify } from '../utils/safeStringify';
+import { Layout } from '../layouts/layout';
+import { PatternLayout, DEFAULT_PATTERN } from '../layouts/pattern-layout';
 
 export class ConsoleAppender extends BaseAppender {
-    private readonly formatter: LogFormatter;
+    public readonly layout: Layout;
 
     constructor(config: ConsoleAppenderConfig = {}) {
         super('ConsoleAppender', config, { minLevel: LogLevel.INFO });
-        this.formatter = new LogFormatter(config.format, this.timezone);
+        this.layout = config.layout || new PatternLayout({
+            pattern: config.format || DEFAULT_PATTERN,
+            timezone: this.timezone,
+            alwaysAppendContext: true,
+            alwaysAppendError: true,
+        });
     }
 
     public handle(entry: LogEntry): void {
-        const logLine = this.formatLog(entry);
+        const logLine = this.layout.format(entry);
 
         switch (entry.level) {
             case LogLevel.TRACE:
@@ -35,15 +40,5 @@ export class ConsoleAppender extends BaseAppender {
             default:
                 console.log(logLine);
         }
-    }
-
-    private formatLog(entry: LogEntry): string {
-        const contextString = entry.context ? ` ${safeStringify(entry.context)}` : '';
-        const errorString = entry.error ? `\n${entry.error.stack || entry.error.message}` : '';
-
-        return this.formatter.format(entry, {
-            context: contextString,
-            error: errorString,
-        });
     }
 }

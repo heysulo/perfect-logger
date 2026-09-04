@@ -1,5 +1,5 @@
 import { LogEntry, AppenderConfig } from '../core/types';
-import { BaseAppender } from './BaseAppender';
+import { BaseAppender } from './base-appender';
 
 export type LogCallback = (entry: LogEntry) => void;
 

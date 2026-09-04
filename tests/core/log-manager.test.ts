@@ -1,8 +1,9 @@
-import { LogManager } from '../../src/core/LogManager';
-import { Logger } from '../../src/core/Logger';
+import { LogManager } from '../../src/core/log-manager';
+import { Logger } from '../../src/core/logger';
 import { LogLevel } from '../../src/constants';
 import { Appender, LogEntry } from '../../src/core/types';
-import { BaseAppender } from '../../src/appenders/BaseAppender';
+import { BaseAppender } from '../../src/appenders/base-appender';
+import { FilterResult } from '../../src/filters/filter';
 
 /**
  * A minimal test appender that records all entries it receives.
@@ -107,6 +108,11 @@ describe('LogManager', () => {
             expect(logger).toBeInstanceOf(Logger);
             expect(logger.namespace).toBe('MyService');
         });
+
+        it('should return root logger when namespace is empty or root', () => {
+            expect(logManager.getLogger('')).toBe(logManager.getRootLogger());
+            expect(logManager.getLogger('root')).toBe(logManager.getRootLogger());
+        });
     });
 
     describe('dispatch()', () => {
@@ -189,6 +195,40 @@ describe('LogManager', () => {
             expect(appender.entries).toHaveLength(1);
             expect(appender.entries[0].level).toBe(LogLevel.ERROR);
         });
+
+        it('should dispatch raw entry directly via logManager.dispatch()', () => {
+            const appender = new MockAppender();
+            logManager.configure({ minLevel: LogLevel.INFO, appenders: [appender] });
+            logManager.dispatch({
+                timestamp: new Date(),
+                level: LogLevel.INFO,
+                namespace: 'direct',
+                message: 'direct message',
+                context: { key: 'val' },
+            });
+            expect(appender.entries).toHaveLength(1);
+            expect(appender.entries[0].message).toBe('direct message');
+            expect(Object.isFrozen(appender.entries[0].context)).toBe(true);
+        });
+
+        it('should drop entry in logManager.dispatch() if global filter returns DENY', () => {
+            const appender = new MockAppender();
+            logManager.configure({
+                minLevel: LogLevel.INFO,
+                appenders: [appender],
+                filters: [{
+                    name: 'DenyAll',
+                    filter: () => FilterResult.DENY,
+                }],
+            });
+            logManager.dispatch({
+                timestamp: new Date(),
+                level: LogLevel.INFO,
+                namespace: 'direct',
+                message: 'drop me',
+            });
+            expect(appender.entries).toHaveLength(0);
+        });
     });
 
     describe('flush()', () => {
@@ -241,6 +281,111 @@ describe('LogManager', () => {
         it('should configure with ConsoleAppender only', () => {
             LogManager.simpleFrontendConfig();
             // Just verify it doesn't throw
+        });
+    });
+
+    describe('static convenience helpers', () => {
+        it('should retrieve root logger and named loggers via static methods', () => {
+            const root = LogManager.getRootLogger();
+            expect(root).toBeDefined();
+            expect(root.namespace).toBe('root');
+
+            const named = LogManager.getLogger('static.test');
+            expect(named).toBeDefined();
+            expect(named.namespace).toBe('static.test');
+        });
+    });
+
+    describe('global filters and timezone', () => {
+        it('should drop log entries when a global filter returns DENY', () => {
+            const appender = new MockAppender();
+            const { FilterResult } = require('../../src/filters/filter');
+
+            const denyFilter = {
+                name: 'DenyAll',
+                filter: jest.fn().mockReturnValue(FilterResult.DENY),
+            };
+
+            logManager.configure({
+                minLevel: LogLevel.TRACE,
+                appenders: [appender],
+                filters: [denyFilter],
+            });
+
+            const logger = logManager.getLogger('test');
+            logger.info('this should be denied globally');
+
+            expect(denyFilter.filter).toHaveBeenCalled();
+            expect(appender.entries).toHaveLength(0);
+        });
+
+        it('should propagate global timezone to appenders without a timezone', () => {
+            const appender = new MockAppender();
+            logManager.configure({
+                timezone: 'America/New_York',
+                appenders: [appender],
+            });
+
+            expect((appender as any).timezone).toBe('America/New_York');
+        });
+
+        it('should support single filter instance in global config and per-logger node config', () => {
+            const singleFilter = {
+                name: 'SingleGlobal',
+                filter: jest.fn().mockReturnValue(0),
+            };
+            const singleNodeFilter = {
+                name: 'SingleNode',
+                filter: jest.fn().mockReturnValue(0),
+            };
+
+            logManager.configure({
+                filters: singleFilter as any,
+                loggers: {
+                    'single.node': {
+                        filters: singleNodeFilter as any,
+                    },
+                },
+            });
+
+            const logger = logManager.getLogger('single.node');
+            expect((logManager as any).filters).toHaveLength(1);
+            expect((logManager as any).filters[0]).toBe(singleFilter);
+            expect(logger.filters).toContain(singleNodeFilter);
+        });
+    });
+
+    describe('appender error resilience during flush and shutdown', () => {
+        it('should catch errors when an appender throws during flush', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+            const failingAppender = new MockAppender();
+            failingAppender.flush = jest.fn().mockRejectedValue(new Error('Flush error'));
+
+            logManager.configure({ appenders: [failingAppender] });
+            await logManager.flush();
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                expect.stringContaining('[perfect-logger] Error flushing appender'),
+                expect.any(Error)
+            );
+            consoleErrorSpy.mockRestore();
+        });
+
+        it('should catch errors when an appender throws during shutdown', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+            const failingAppender = new MockAppender();
+            failingAppender.destroy = jest.fn().mockImplementation(() => {
+                throw new Error('Destroy error');
+            });
+
+            logManager.configure({ appenders: [failingAppender] });
+            await logManager.shutdown();
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                expect.stringContaining('[perfect-logger] Error destroying appender'),
+                expect.any(Error)
+            );
+            consoleErrorSpy.mockRestore();
         });
     });
 });

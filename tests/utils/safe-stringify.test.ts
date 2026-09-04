@@ -1,4 +1,4 @@
-import { safeStringify } from '../../src/utils/safeStringify';
+import { safeStringify } from '../../src/utils/safe-stringify';
 
 describe('safeStringify', () => {
     it('should stringify simple objects', () => {

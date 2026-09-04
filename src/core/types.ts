@@ -1,4 +1,10 @@
 import { LogLevel } from '../constants';
+import { Layout } from '../layouts/layout';
+import { Marker } from './marker';
+import { Filter, FilterResult } from '../filters/filter';
+
+export type { Layout, Marker, Filter };
+export { FilterResult };
 
 /**
  * The standardized data structure for a log message.
@@ -9,51 +15,86 @@ export interface LogEntry {
     timestamp: Date;
     /** Numeric severity level */
     level: LogLevel;
-    /** The name of the logger (e.g. "AuthService") */
+    /** The name of the logger (e.g. "services.auth") */
     namespace: string;
     /** The main log message */
     message: string;
-    /** * Contextual metadata (user IDs, request IDs, etc.)
-     * This is the result of merging Global + Child + Local context.
+    /** Optional Marker tag for semantic categorisation (e.g. SECURITY, AUDIT) */
+    marker?: Marker;
+    /**
+     * Contextual metadata (user IDs, request IDs, etc.)
+     * Result of merging MDC + Logger Context + Local Context.
      */
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     /** Optional error object if one was passed */
     error?: Error;
+}
+
+/**
+ * Per-logger configuration in the hierarchy tree.
+ */
+export interface LoggerNodeConfig {
+    /** Minimum level for this logger. If omitted, inherits from parent or root. */
+    level?: LogLevel;
+    /** List of appenders specific to this logger */
+    appenders?: Appender[];
+    /**
+     * Whether log events bubble up to ancestor loggers and their appenders.
+     * Default: true.
+     */
+    additivity?: boolean;
+    /** Filters specific to this logger */
+    filters?: Filter[] | Filter;
 }
 
 /**
  * Configuration options for the entire LogManager.
  */
 export interface LoggerConfig {
-    /** Minimum level to process. Logs below this are ignored immediately. Default: INFO */
-    minLevel: LogLevel;
-    /** List of appenders to dispatch logs to */
-    appenders: Appender[];
+    /** Minimum level to process globally. Default: INFO */
+    minLevel?: LogLevel;
+    /** Root appenders list */
+    appenders?: Appender[];
+    /** Global filters applied before dispatching to loggers */
+    filters?: Filter[] | Filter;
     /**
      * Global default timezone for all appenders.
-     * Can be overridden by individual appenders.
      * Uses the IANA Time Zone Database format (e.g., "America/New_York", "UTC").
      */
     timezone?: string;
+    /** Explicit root logger configuration */
+    root?: LoggerNodeConfig;
+    /** Hierarchical logger configurations keyed by namespace (e.g. "api.auth") */
+    loggers?: Record<string, LoggerNodeConfig>;
 }
 
 /**
  * Configuration for an individual Appender.
  */
 export interface AppenderConfig {
-    /** * Optional override. If set, this appender only logs if level >= minLevel.
-     * Allows having a "File" appender for everything and "Console" only for Errors.
+    /**
+     * Optional override. If set, this appender only logs if level >= minLevel (or filter accepts).
      */
     minLevel?: LogLevel;
 
     /**
-     * If true, logs are buffered and written in batches.
+     * The layout to use for formatting log entries.
+     */
+    layout?: Layout;
+
+    /**
+     * Optional filter or list of filters to evaluate for each log entry before handling.
+     */
+    filters?: Filter[] | Filter;
+
+    /**
+     * If batchSize > 1, logs are buffered and written in batches.
      */
     batchSize?: number;
     batchInterval?: number;
+
     /**
      * Optional override for this appender's timezone.
-     * If not set, the global `LoggerConfig.timezone` is used.
      * Uses the IANA Time Zone Database format (e.g., "America/New_York", "UTC").
      */
     timezone?: string;
@@ -64,23 +105,23 @@ export interface AppenderConfig {
  */
 export interface ConsoleAppenderConfig extends AppenderConfig {
     /**
-     * A template string for formatting log messages.
-     * Placeholders like {date}, {time}, {level}, {namespace}, {message}, {context}, and {error} will be replaced.
-     * Default: "{date} | {time} | {level} | {message}"
+     * Optional format pattern string.
+     * If provided without an explicit layout, creates a PatternLayout.
      */
     format?: string;
 }
 
-
 /**
- * The Interface all plugins (Console, File, Memory) must implement.
+ * The Interface all appender plugins (Console, File, Stream, etc.) must implement.
  */
 export interface Appender {
     name: string;
+    layout?: Layout;
+    filters?: Filter[];
 
     /**
-     * The main entry point called by LogManager for each log entry.
-     * Handles level filtering and optional batching before delegating to handle().
+     * The main entry point called by LogManager / Logger for each log entry.
+     * Handles filter evaluation, level filtering, and optional batching before delegating to handle().
      */
     log(entry: LogEntry): Promise<void> | void;
 

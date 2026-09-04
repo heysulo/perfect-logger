@@ -1,7 +1,7 @@
 {
   "name": "perfect-logger",
-  "version": "3.0.0",
-  "description": "A zero-dependency, isomorphic logger for Node.js and Browsers with plugin support.",
+  "version": "4.0.0",
+  "description": "Enterprise-grade, zero-dependency, isomorphic logging framework for Node.js and Browsers inspired by Log4j 2.",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/index.d.ts",
@@ -45,6 +45,11 @@
   "keywords": [
     "logger",
     "logging",
+    "log4j",
+    "enterprise",
+    "mdc",
+    "marker",
+    "async-appender",
     "typescript",
     "isomorphic",
     "universal",

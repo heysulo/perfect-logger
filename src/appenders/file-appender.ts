@@ -1,22 +1,29 @@
 import { LogEntry, AppenderConfig } from '../core/types';
-import { BaseAppender } from './BaseAppender';
+import { Layout } from '../layouts/layout';
+import { BaseAppender } from './base-appender';
 import { isNode } from '../utils/environment';
 import { LogLevel } from '../constants';
-import { LogFormatter } from '../utils/LogFormatter';
-import { safeStringify } from '../utils/safeStringify';
+import { LogFormatter } from '../utils/log-formatter';
+import { safeStringify } from '../utils/safe-stringify';
 import type * as fs from 'fs';
 import type * as path from 'path';
+import type * as zlib from 'zlib';
 
 // Node.js modules are conditionally required
 let fsPromises: typeof fs.promises | null = null;
 let fsModule: typeof fs | null = null;
 let pathModule: typeof path | null = null;
+let zlibModule: typeof zlib | null = null;
 
 if (isNode()) {
     try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         fsModule = require('fs');
-        fsPromises = require('fs').promises;
+        fsPromises = fsModule ? fsModule.promises : null;
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         pathModule = require('path');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        zlibModule = require('zlib');
     } catch (e) {
         console.error('FileAppender is only available in Node.js environments.');
     }
@@ -29,15 +36,22 @@ export interface FileAppenderConfig extends AppenderConfig {
     rotation?: 'daily' | 'hourly';
     maxSize?: number; // in bytes
     maxFiles?: number;
+    /**
+     * If true, archive files are compressed with gzip (.gz) on rollover.
+     * Uses Node.js built-in zlib with zero external dependencies.
+     */
+    compress?: boolean;
 }
 
 export class FileAppender extends BaseAppender {
+    public readonly layout: Layout;
     private readonly logDirectory: string;
     private readonly fileName: string;
     private readonly formatter: LogFormatter;
     private readonly rotation?: 'daily' | 'hourly';
     private readonly maxSize: number | null;
     private readonly maxFiles: number | null;
+    private readonly compress: boolean;
 
     /**
      * Intl.DateTimeFormat used to extract timezone-aware date parts for rotation markers.
@@ -64,10 +78,29 @@ export class FileAppender extends BaseAppender {
         this.logDirectory = config.logDirectory || pathModule.join(process.cwd(), 'logs');
         this.fileName = config.fileName || 'app.log';
         this.formatter = new LogFormatter(config.format, this.timezone);
+        this.layout = config.layout || {
+            contentType: 'text/plain',
+            format: (entry: LogEntry): string => {
+                let logLine = this.formatter.format(entry);
+
+                if (entry.context) {
+                    const prettyContext = safeStringify(entry.context, null, 4);
+                    const indentedContext = prettyContext.split('\n').map(line => `~ ${line}`).join('\n');
+                    logLine += `\n${indentedContext}`;
+                }
+
+                if (entry.error) {
+                    logLine += `\n${entry.error.stack || entry.error.message}`;
+                }
+
+                return logLine;
+            },
+        };
 
         this.rotation = config.rotation;
         this.maxSize = config.maxSize ?? null;  // Q5: nullish instead of falsy
         this.maxFiles = config.maxFiles ?? null; // Q5: nullish instead of falsy
+        this.compress = config.compress ?? false;
 
         // B4: Use Intl.DateTimeFormat for timezone-aware date markers
         this.markerFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -88,8 +121,11 @@ export class FileAppender extends BaseAppender {
      * B2 fix: Fully synchronous initialization to avoid constructor race conditions.
      */
     private initializeStateSync(): void {
-        if (!fsModule!.existsSync(this.logDirectory)) {
-            fsModule!.mkdirSync(this.logDirectory, { recursive: true });
+        const fs = fsModule;
+        if (!fs) return;
+
+        if (!fs.existsSync(this.logDirectory)) {
+            fs.mkdirSync(this.logDirectory, { recursive: true });
         }
 
         if (this.rotation) {
@@ -100,7 +136,7 @@ export class FileAppender extends BaseAppender {
         this.currentFilePath = this.getCurrentFilename();
 
         try {
-            const stats = fsModule!.statSync(this.currentFilePath);
+            const stats = fs.statSync(this.currentFilePath);
             this.currentFileSize = stats.size;
         } catch (e) {
             this.currentFileSize = 0;
@@ -194,19 +230,41 @@ export class FileAppender extends BaseAppender {
             return;
         }
 
+        let finalArchivePath = archivePath;
+        const zlib = zlibModule;
+        if (this.compress && zlib) {
+            try {
+                const uncompressed = await fsPromises.readFile(archivePath);
+                const gzipped = await new Promise<Buffer>((resolve, reject) => {
+                    zlib.gzip(uncompressed, (err, res) => {
+                        if (err) reject(err);
+                        else resolve(res);
+                    });
+                });
+                const gzPath = `${archivePath}.gz`;
+                await fsPromises.writeFile(gzPath, gzipped);
+                await fsPromises.unlink(archivePath);
+                finalArchivePath = gzPath;
+            } catch (e) {
+                console.error(`Failed to compress rotated log file ${archivePath}`, e);
+            }
+        }
+
         // Prune
-        await this.prune([archivePath, ...archives]);
+        await this.prune([finalArchivePath, ...archives]);
     }
 
     /**
      * B5 fix: Find the highest numeric suffix among existing archives
-     * so we never overwrite an existing archive file.
+     * so we never overwrite an existing archive file. Supports compressed .gz archives.
      */
     private getMaxNumericSuffix(archives: string[], baseName: string, ext: string): number {
         let max = 0;
-        const regex = new RegExp(`^${this.escapeRegex(baseName)}\\.(\\d+)${this.escapeRegex(ext)}$`);
+        const path = pathModule;
+        if (!path) return max;
+        const regex = new RegExp(`^${this.escapeRegex(baseName)}\\.(\\d+)${this.escapeRegex(ext)}(\\.gz)?$`);
         for (const archive of archives) {
-            const fileName = pathModule!.basename(archive);
+            const fileName = path.basename(archive);
             const match = fileName.match(regex);
             if (match) {
                 const num = parseInt(match[1], 10);
@@ -221,7 +279,8 @@ export class FileAppender extends BaseAppender {
     }
 
     private async prune(archives: string[]): Promise<void> {
-        if (!this.maxFiles || !pathModule) return;
+        const fsP = fsPromises;
+        if (!this.maxFiles || !pathModule || !fsP) return;
 
         const filesToProcess = archives.sort().reverse(); // Newest first
 
@@ -230,7 +289,7 @@ export class FileAppender extends BaseAppender {
             const filesToDelete = filesToProcess.slice(this.maxFiles);
             for (const file of filesToDelete) {
                 try {
-                    await fsPromises!.unlink(file);
+                    await fsP.unlink(file);
                 } catch (e) {
                     console.error(`Failed to delete old log file: ${file}`, e);
                 }
@@ -239,13 +298,14 @@ export class FileAppender extends BaseAppender {
     }
 
     private async getArchives(baseName: string): Promise<string[]> {
-        if (!pathModule || !fsPromises) return [];
-        const files = await fsPromises.readdir(this.logDirectory);
-        const ext = pathModule.extname(this.fileName);
+        const path = pathModule;
+        const fsP = fsPromises;
+        if (!path || !fsP) return [];
+        const files = await fsP.readdir(this.logDirectory);
         const regex = new RegExp(`^${this.escapeRegex(baseName)}[-.]`);
         return files
             .filter(f => f.startsWith(baseName) && f !== this.fileName && regex.test(f))
-            .map(f => pathModule!.join(this.logDirectory, f));
+            .map(f => path.join(this.logDirectory, f));
     }
 
     private getCurrentFilename(): string {
@@ -276,21 +336,11 @@ export class FileAppender extends BaseAppender {
     }
 
     /**
-     * R5: Uses shared LogFormatter for consistent formatting with ConsoleAppender.
+     * Delegates to the configured Layout.
      */
     private formatLog(entry: LogEntry): string {
-        let logLine = this.formatter.format(entry);
-
-        if (entry.context) {
-            const prettyContext = safeStringify(entry.context, null, 4);
-            const indentedContext = prettyContext.split('\n').map(line => `~ ${line}`).join('\n');
-            logLine += `\n${indentedContext}`;
-        }
-
-        if (entry.error) {
-            logLine += `\n${entry.error.stack || entry.error.message}`;
-        }
-
-        return logLine;
+        return this.layout.format(entry);
     }
 }
+
+export { FileAppender as RollingFileAppender };

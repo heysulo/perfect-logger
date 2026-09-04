@@ -1,6 +1,7 @@
 import { LogLevel } from '../../src/constants';
-import { LogEntry } from '../../src/core/types';
-import { BaseAppender } from '../../src/appenders/BaseAppender';
+import { AppenderConfig, LogEntry } from '../../src/core/types';
+import { BaseAppender } from '../../src/appenders/base-appender';
+import { FilterResult } from '../../src/filters/filter';
 
 /**
  * A concrete test subclass of BaseAppender to test the abstract class's behavior.
@@ -9,7 +10,7 @@ class TestAppender extends BaseAppender {
     public handledEntries: LogEntry[] = [];
     public batchedEntries: LogEntry[][] = [];
 
-    constructor(config: { minLevel?: LogLevel; batchSize?: number; batchInterval?: number } = {}) {
+    constructor(config: AppenderConfig = {}) {
         super('TestAppender', config);
     }
 
@@ -70,6 +71,44 @@ describe('BaseAppender', () => {
 
             await appender.log(makeEntry(LogLevel.INFO));
             expect(appender.handledEntries).toHaveLength(1);
+        });
+    });
+
+    describe('log() — filter evaluation', () => {
+        it('should drop entries when an appender filter returns DENY', async () => {
+            const appender = new TestAppender();
+            appender.filters.push({
+                name: 'DenyAll',
+                filter: () => FilterResult.DENY,
+            });
+            await appender.log(makeEntry(LogLevel.FATAL));
+            expect(appender.handledEntries).toHaveLength(0);
+        });
+
+        it('should accept entries when filter returns ACCEPT even below minLevel', async () => {
+            const appender = new TestAppender({ minLevel: LogLevel.ERROR });
+            appender.filters.push({
+                name: 'AcceptDebug',
+                filter: (entry) => entry.level === LogLevel.DEBUG ? FilterResult.ACCEPT : FilterResult.NEUTRAL,
+            });
+            await appender.log(makeEntry(LogLevel.DEBUG));
+            await appender.log(makeEntry(LogLevel.INFO));
+            expect(appender.handledEntries).toHaveLength(1);
+            expect(appender.handledEntries[0].level).toBe(LogLevel.DEBUG);
+        });
+
+        it('should initialize filters when passed as a single filter or array in config', () => {
+            const singleFilter = {
+                name: 'Single',
+                filter: () => FilterResult.NEUTRAL,
+            };
+            const appenderSingle = new TestAppender({ filters: singleFilter, batchInterval: 500 });
+            expect(appenderSingle.filters).toHaveLength(1);
+            expect(appenderSingle.filters[0]).toBe(singleFilter);
+
+            const appenderArray = new TestAppender({ filters: [singleFilter] });
+            expect(appenderArray.filters).toHaveLength(1);
+            expect(appenderArray.filters[0]).toBe(singleFilter);
         });
     });
 

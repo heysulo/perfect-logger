@@ -1,4 +1,4 @@
-import {ConsoleAppender} from '../../src/appenders/ConsoleAppender';
+import {ConsoleAppender} from '../../src/appenders/console-appender';
 import {LogLevel} from '../../src/constants';
 import {LogEntry} from '../../src/core/types';
 
@@ -133,5 +133,13 @@ describe('ConsoleAppender', () => {
         // 18:26 UTC is 13:26 in America/New_York on that date
         const expectedPattern = /2020\/02\/21 \| 13:26:00.321 \| INFO \| Test \| Timezone test/;
         expect(logOutput).toMatch(expectedPattern);
+    });
+
+    it('should fall back to console.log for unrecognized log levels', () => {
+        const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        const appender = new ConsoleAppender();
+        appender.handle({ level: 99 as any, namespace: 'N', message: 'Unknown level', timestamp: new Date() });
+        expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+        consoleLogSpy.mockRestore();
     });
 });

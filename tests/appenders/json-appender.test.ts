@@ -1,4 +1,4 @@
-import { JsonAppender } from '../../src/appenders/JsonAppender';
+import { JsonAppender } from '../../src/appenders/json-appender';
 import { LogLevel } from '../../src/constants';
 import { LogEntry } from '../../src/core/types';
 
