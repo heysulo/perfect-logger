@@ -1,6 +1,7 @@
 # perfect-logger
 
 [![npm version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://www.npmjs.com/package/perfect-logger)
+[![CI](https://github.com/heysulo/perfect-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/heysulo/perfect-logger/actions/workflows/ci.yml)
 [![tests](https://img.shields.io/badge/tests-252%20passed-brightgreen.svg)]()
 [![coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)]()
 [![dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)]()

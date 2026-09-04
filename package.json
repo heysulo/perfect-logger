@@ -27,6 +27,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:examples": "ts-node examples/01-quick-start.ts && ts-node examples/02-hierarchical-loggers.ts && ts-node examples/03-mdc-async-context.ts && ts-node examples/04-layouts-pattern-and-json.ts && ts-node examples/05-semantic-markers.ts && ts-node examples/06-filters-pipeline.ts && ts-node examples/07-advanced-appenders.ts && ts-node examples/08-declarative-config.ts",
     "lint": "eslint 'src/**/*.{js,ts}' --exit-on-fatal-error",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "prepublishOnly": "npm run build",
