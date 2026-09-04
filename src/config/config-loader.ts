@@ -37,6 +37,7 @@ export interface DeclarativeAppenderConfig {
     appender?: string; // For AsyncAppender reference
     queueSize?: number;
     overflowPolicy?: 'DISCARD' | 'DISCARD_OLDEST' | 'BLOCK';
+    options?: Record<string, unknown>;
 }
 
 export interface DeclarativeConfig {
@@ -246,17 +247,19 @@ export class ConfigLoader {
             case 'Console':
                 return new ConsoleAppender({ minLevel, layout });
             case 'File':
-            case 'RollingFile':
+            case 'RollingFile': {
+                const opts = (cfg.options as Record<string, unknown>) || {};
                 return new FileAppender({
                     minLevel,
                     layout,
-                    logDirectory: cfg.logDirectory,
-                    fileName: cfg.fileName,
-                    rotation: cfg.rotation,
-                    maxSize: cfg.maxSize,
-                    maxFiles: cfg.maxFiles,
-                    compress: cfg.compress,
+                    logDirectory: cfg.logDirectory ?? (opts.logDirectory as string | undefined),
+                    fileName: cfg.fileName ?? (opts.fileName as string | undefined),
+                    rotation: cfg.rotation ?? (opts.rotation as 'daily' | 'hourly' | undefined),
+                    maxSize: cfg.maxSize ?? (opts.maxSize as number | undefined),
+                    maxFiles: cfg.maxFiles ?? (opts.maxFiles as number | undefined),
+                    compress: cfg.compress ?? (opts.compress as boolean | undefined),
                 });
+            }
             case 'Stream':
                 return new StreamAppender({ minLevel, layout });
             case 'Http':

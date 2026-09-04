@@ -1,7 +1,7 @@
 # perfect-logger
 
 [![npm version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://www.npmjs.com/package/perfect-logger)
-[![tests](https://img.shields.io/badge/tests-234%20passed-brightgreen.svg)]()
+[![tests](https://img.shields.io/badge/tests-252%20passed-brightgreen.svg)]()
 [![coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)]()
 [![dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)]()
 [![types](https://img.shields.io/badge/TypeScript-strict-blue.svg)]()
@@ -37,6 +37,7 @@ An enterprise-grade, zero-dependency, isomorphic logging framework for TypeScrip
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Executable Examples](#executable-examples)
 - [Core Architecture](#core-architecture)
   - [Hierarchical Loggers & Additivity](#hierarchical-loggers--additivity)
   - [Mapped Diagnostic Context (MDC)](#mapped-diagnostic-context-mdc)
@@ -114,9 +115,9 @@ LogManager.configure({
             }),
             // Asynchronous rolling file with gzip compression
             new AsyncAppender({
-                bufferSize: 10000,
+                queueSize: 10000,
                 overflowPolicy: OverflowPolicy.DISCARD_OLDEST,
-                target: new RollingFileAppender({
+                appender: new RollingFileAppender({
                     logDirectory: './logs',
                     fileName: 'application.log',
                     maxSize: 50 * 1024 * 1024, // 50MB
@@ -146,6 +147,23 @@ LogManager.configure({
     },
 });
 ```
+
+---
+
+## Executable Examples
+
+A complete, runnable test suite of TypeScript examples is available in the [`examples/`](./examples) directory. You can run any example directly using `npx ts-node`:
+
+| Example | Feature Area | Command |
+| :--- | :--- | :--- |
+| [`01-quick-start.ts`](./examples/01-quick-start.ts) | Out-of-the-box `defaultLogger`, central `LogManager.configure()`, log levels, metadata, error handling | `npx ts-node examples/01-quick-start.ts` |
+| [`02-hierarchical-loggers.ts`](./examples/02-hierarchical-loggers.ts) | Dot-notated hierarchical tree (`api.services.auth`), level inheritance, additivity bubbling, and isolation | `npx ts-node examples/02-hierarchical-loggers.ts` |
+| [`03-mdc-async-context.ts`](./examples/03-mdc-async-context.ts) | Mapped Diagnostic Context (MDC) across asynchronous calls via `AsyncLocalStorage` with concurrency isolation | `npx ts-node examples/03-mdc-async-context.ts` |
+| [`04-layouts-pattern-and-json.ts`](./examples/04-layouts-pattern-and-json.ts) | Decoupled `PatternLayout` (conversion specifiers) and `JsonLayout` (NDJSON / Datadog / ELK structured logs) | `npx ts-node examples/04-layouts-pattern-and-json.ts` |
+| [`05-semantic-markers.ts`](./examples/05-semantic-markers.ts) | Semantic markers (`Markers.SECURITY`), hierarchical marker trees, and `MarkerFilter` routing | `npx ts-node examples/05-semantic-markers.ts` |
+| [`06-filters-pipeline.ts`](./examples/06-filters-pipeline.ts) | Tri-state filter pipeline (`ACCEPT`, `DENY`, `NEUTRAL`), `RegexFilter` noise reduction, and VIP bypass | `npx ts-node examples/06-filters-pipeline.ts` |
+| [`07-advanced-appenders.ts`](./examples/07-advanced-appenders.ts) | High-performance `StreamAppender`, non-blocking `AsyncAppender`, `RollingFileAppender`, and `CallbackAppender` | `npx ts-node examples/07-advanced-appenders.ts` |
+| [`08-declarative-config.ts`](./examples/08-declarative-config.ts) | Zero-code setup with [`logger.config.json`](./examples/logger.config.json), dynamic env interpolation (`${env:VAR:-default}`) | `npx ts-node examples/08-declarative-config.ts` |
 
 ---
 
@@ -373,9 +391,8 @@ Wraps any target appender to perform logging asynchronously in the background. P
 import { AsyncAppender, OverflowPolicy, FileAppender } from 'perfect-logger';
 
 const asyncAppender = new AsyncAppender({
-    target: new FileAppender({ fileName: 'app.log' }),
-    bufferSize: 5000,
-    batchSize: 50,
+    appender: new FileAppender({ fileName: 'app.log' }),
+    queueSize: 5000,
     overflowPolicy: OverflowPolicy.DISCARD_OLDEST, // Or BLOCK, DISCARD
 });
 ```
@@ -464,14 +481,16 @@ Supports runtime environment variable expansion via `${env:NAME}` or `${env:NAME
       }
     },
     "file": {
-      "type": "File",
+      "type": "RollingFile",
       "minLevel": "WARN",
-      "options": {
-        "logDirectory": "./logs",
-        "fileName": "errors.log",
-        "maxSize": 10485760,
-        "maxFiles": 5,
-        "compress": true
+      "logDirectory": "./logs",
+      "fileName": "errors.log",
+      "maxSize": 10485760,
+      "maxFiles": 5,
+      "compress": true,
+      "layout": {
+        "type": "Json",
+        "pretty": false
       }
     }
   },
@@ -510,14 +529,16 @@ Supports runtime environment variable expansion via `${env:NAME}` or `${env:NAME
 
 ### Exported Classes & Singletons
 
-* **`LogManager`**: Central configuration registry and logger factory.
-* **`Logger`**: Hierarchical logger with level evaluation, context merging, and appender dispatching.
-* **`MDC`**: Mapped Diagnostic Context for async tracing.
-* **`MarkerManager` / `Markers`**: Marker creation and standard semantic marker presets (`AUDIT`, `SECURITY`, `PERF`, `DATABASE`).
-* **Appenders**: `ConsoleAppender`, `FileAppender`, `RollingFileAppender`, `StreamAppender`, `HttpAppender`, `AsyncAppender`, `CallbackAppender`, `JsonAppender`.
+* **`defaultLogger`**: Pre-configured root default logger instance for immediate out-of-the-box logging.
+* **`logManager` / `LogManager`**: Central configuration registry, singleton instance, static helpers (`configure()`, `getLogger()`, `getRootLogger()`, `flush()`, `shutdown()`, `autoConfigure()`).
+* **`Logger`**: Hierarchical logger with level evaluation, guard methods, context merging, and appender dispatching.
+* **`MDC`**: Mapped Diagnostic Context for async tracing (`run()`, `put()`, `get()`, `remove()`, `clear()`, `getContext()`, `getCopyOfContextMap()`).
+* **`MarkerManager` / `Markers`**: Marker creation, parent-child inheritance, and standard semantic presets (`AUDIT`, `SECURITY`, `PERF`, `DATABASE`).
+* **Appenders**: `ConsoleAppender`, `FileAppender`, `RollingFileAppender`, `StreamAppender`, `HttpAppender`, `AsyncAppender`, `CallbackAppender`, `JsonAppender`, `BaseAppender`.
 * **Layouts**: `PatternLayout`, `JsonLayout`.
 * **Filters**: `ThresholdFilter`, `MarkerFilter`, `RegexFilter`, `ContextFilter`, `CompositeFilter`.
-* **Enums**: `LogLevel` (`TRACE = 0`, `DEBUG = 1`, `INFO = 2`, `WARN = 3`, `ERROR = 4`, `FATAL = 5`), `FilterResult` (`ACCEPT = 1`, `NEUTRAL = 0`, `DENY = -1`), `OverflowPolicy` (`DISCARD`, `DISCARD_OLDEST`, `BLOCK`).
+* **Configuration**: `ConfigLoader` declarative config parser and file auto-discovery.
+* **Types & Constants**: `LogLevel` (`TRACE = 0`..`FATAL = 5`), `FilterResult` (`ACCEPT = 1`, `NEUTRAL = 0`, `DENY = -1`), `OverflowPolicy` (`DISCARD`, `DISCARD_OLDEST`, `BLOCK`).
 
 ---
 

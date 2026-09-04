@@ -2,13 +2,23 @@ import { Appender, AppenderConfig, LogEntry } from '../core/types';
 import { BaseAppender } from './base-appender';
 import { LogLevel } from '../constants';
 
-export type OverflowPolicy = 'DISCARD' | 'DISCARD_OLDEST' | 'BLOCK';
+export const OverflowPolicy = {
+    DISCARD: 'DISCARD',
+    DISCARD_OLDEST: 'DISCARD_OLDEST',
+    BLOCK: 'BLOCK',
+} as const;
+
+export type OverflowPolicy = (typeof OverflowPolicy)[keyof typeof OverflowPolicy];
 
 export interface AsyncAppenderConfig extends AppenderConfig {
     /** Target destination appender to wrap */
-    appender: Appender;
+    appender?: Appender;
+    /** Alias for appender */
+    target?: Appender;
     /** Maximum queue capacity. Default: 1024 */
     queueSize?: number;
+    /** Alias for queueSize */
+    bufferSize?: number;
     /** Overflow strategy when queue reaches maximum capacity. Default: 'DISCARD_OLDEST' */
     overflowPolicy?: OverflowPolicy;
 }
@@ -27,9 +37,13 @@ export class AsyncAppender extends BaseAppender {
     private blockWaiters: (() => void)[] = [];
 
     constructor(config: AsyncAppenderConfig) {
-        super(`Async[${config.appender.name}]`, config, { minLevel: LogLevel.TRACE });
-        this.targetAppender = config.appender;
-        this.queueSize = config.queueSize ?? 1024;
+        const target = config.appender || config.target;
+        if (!target) {
+            throw new Error('AsyncAppender requires an `appender` or `target` to wrap.');
+        }
+        super(`Async[${target.name}]`, config, { minLevel: LogLevel.TRACE });
+        this.targetAppender = target;
+        this.queueSize = config.queueSize ?? config.bufferSize ?? 1024;
         this.overflowPolicy = config.overflowPolicy ?? 'DISCARD_OLDEST';
     }
 
