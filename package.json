@@ -1,6 +1,6 @@
 {
   "name": "perfect-logger",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Enterprise-grade, zero-dependency, isomorphic logging framework for Node.js and Browsers inspired by Log4j 2.",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
