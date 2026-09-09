@@ -598,6 +598,23 @@ npm run bench -- --json
 > [!TIP]
 > **Performance Recommendation**: For high-throughput services (e.g. HTTP servers, message consumers), wrap file or network appenders with `AsyncAppender` and configure `batchSize: 50` or higher to eliminate thread blocking and maximize I/O efficiency.
 
+### Automated CI Regression Detection
+
+Every Pull Request automatically executes the [benchmark workflow](.github/workflows/benchmark.yml) to compare the PR against the base branch on the exact same GitHub Actions runner:
+
+```bash
+# Compare current changes against saved baseline
+npm run bench:check
+
+# Set custom regression tolerance threshold (e.g. 10%)
+npm run bench:check -- --threshold=10
+
+# Save current performance as new baseline
+npm run bench:save-baseline
+```
+
+If any benchmark throughput degrades beyond the configured threshold, the CI job automatically fails with a detailed diff table published to the GitHub Step Summary.
+
 ---
 
 ## License
