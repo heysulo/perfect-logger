@@ -557,6 +557,49 @@ const { LogManager, LogLevel } = require('perfect-logger');
 
 ---
 
+## Performance & Benchmarks
+
+`perfect-logger` includes a zero-dependency, nanosecond-precision microbenchmark suite designed to measure throughput and latency distributions across real-world workloads.
+
+### Running Benchmarks
+
+```bash
+# Run the complete benchmark suite
+npm run benchmark
+# or
+npm run bench
+
+# Run an individual suite (fast-path, core, context, layouts, filters, appenders)
+npm run bench -- --suite=fast-path
+npm run bench -- --suite=layouts
+
+# Filter individual benchmarks by name substring
+npm run bench -- --filter=json
+
+# Output machine-readable JSON for CI tracking
+npm run bench -- --json
+```
+
+### Benchmark Summary (Apple M4, Node.js 22)
+
+| Workload / Component | Throughput (ops/sec) | Mean Latency | Median (p50) |
+| :--- | :--- | :--- | :--- |
+| **Fast-Path (`isLevelEnabled`)** | **~63,800,000 ops/s** | **15.4 ns** | **15.2 ns** |
+| **Disabled Log Call (`logger.debug()` below minLevel)** | **~9,900,000 ops/s** | **100 ns** | **99 ns** |
+| **MDC Key-Value Access (`MDC.put` / `get`)** | **~16,800,000 ops/s** | **59 ns** | **57 ns** |
+| **Filter Evaluation (`ThresholdFilter`)** | **~1,100,000,000 ops/s** | **0.6 ns** | **0.6 ns** |
+| **Filter Evaluation (`RegexFilter`)** | **~73,700,000 ops/s** | **13.3 ns** | **13.3 ns** |
+| **Core Logger Dispatch (In-Memory)** | **~1,410,000 ops/s** | **707 ns** | **218 ns** |
+| **PatternLayout Formatting** | **~708,000 ops/s** | **1.41 µs** | **1.39 µs** |
+| **JsonLayout Serialization (Compact)** | **~976,000 ops/s** | **1.02 µs** | **1.02 µs** |
+| **AsyncAppender Throughput (Worker Queue)** | **~2,650,000 ops/s** | **376 ns** | **72.7 ns** |
+| **FileAppender (Batched, batchSize=100)** | **~30,300,000 ops/s** | **31.9 ns** | **15.0 ns** |
+
+> [!TIP]
+> **Performance Recommendation**: For high-throughput services (e.g. HTTP servers, message consumers), wrap file or network appenders with `AsyncAppender` and configure `batchSize: 50` or higher to eliminate thread blocking and maximize I/O efficiency.
+
+---
+
 ## License
 
 [MIT](./LICENSE) © Sulochana Kodituwakku
