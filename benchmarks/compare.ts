@@ -118,7 +118,12 @@ function analyzeComparison(
     return { rows, regressions };
 }
 
-function printConsoleReport(rows: ComparisonRow[], regressions: ComparisonRow[], thresholdPct: number): void {
+function printConsoleReport(
+    rows: ComparisonRow[],
+    regressions: ComparisonRow[],
+    thresholdPct: number,
+    failOnRegression: boolean = true
+): void {
     const green = '\x1b[32m';
     const red = '\x1b[31m';
     const yellow = '\x1b[33m';
@@ -192,7 +197,11 @@ function printConsoleReport(rows: ComparisonRow[], regressions: ComparisonRow[],
 
     console.log(`\n${bold}${cyan}================================================================================${reset}`);
     if (regressions.length > 0) {
-        console.error(`${red}${bold}❌ REGRESSION DETECTED: ${regressions.length} benchmark(s) degraded by > ${thresholdPct}%${reset}\n`);
+        if (!failOnRegression) {
+            console.warn(`${yellow}${bold}⚠️ ADVISORY WARNING: ${regressions.length} benchmark(s) degraded by > ${thresholdPct}% vs fallback baseline (non-blocking)${reset}\n`);
+        } else {
+            console.error(`${red}${bold}❌ REGRESSION DETECTED: ${regressions.length} benchmark(s) degraded by > ${thresholdPct}%${reset}\n`);
+        }
         for (const reg of regressions) {
             console.error(`  - ${reg.suite} > ${reg.name}: ${reg.diffPct.toFixed(1)}% (Baseline: ${formatOps(reg.baselineOps)}, Current: ${formatOps(reg.currentOps)})`);
         }
@@ -202,7 +211,12 @@ function printConsoleReport(rows: ComparisonRow[], regressions: ComparisonRow[],
     }
 }
 
-function writeGitHubSummary(rows: ComparisonRow[], regressions: ComparisonRow[], thresholdPct: number): void {
+function writeGitHubSummary(
+    rows: ComparisonRow[],
+    regressions: ComparisonRow[],
+    thresholdPct: number,
+    failOnRegression: boolean = true
+): void {
     const summaryPath = process.env.GITHUB_STEP_SUMMARY;
     if (!summaryPath) {
         return;
@@ -211,8 +225,13 @@ function writeGitHubSummary(rows: ComparisonRow[], regressions: ComparisonRow[],
     let md = `## ⚡ Performance Benchmark Regression Report\n\n`;
 
     if (regressions.length > 0) {
-        md += `> [!CAUTION]\n`;
-        md += `> **Performance Regression Detected**: ${regressions.length} benchmark(s) dropped throughput by more than **${thresholdPct}%**.\n\n`;
+        if (!failOnRegression) {
+            md += `> [!WARNING]\n`;
+            md += `> **Advisory Mode**: ${regressions.length} benchmark(s) dropped throughput by more than **${thresholdPct}%** relative to the fallback baseline (likely due to cross-machine hardware differences). This check is non-blocking.\n\n`;
+        } else {
+            md += `> [!CAUTION]\n`;
+            md += `> **Performance Regression Detected**: ${regressions.length} benchmark(s) dropped throughput by more than **${thresholdPct}%**.\n\n`;
+        }
     } else {
         md += `> [!TIP]\n`;
         md += `> **All benchmarks passed**: Performance is within the allowable **${thresholdPct}%** tolerance margin.\n\n`;
@@ -234,7 +253,7 @@ function writeGitHubSummary(rows: ComparisonRow[], regressions: ComparisonRow[],
         md += `| \`${r.name}\` | ${baseStr} | ${currStr} | ${deltaStr} | ${badge} |\n`;
     }
 
-    md += `\n*Threshold: ${thresholdPct}% | Runner: GitHub Actions*\n`;
+    md += `\n*Threshold: ${thresholdPct}% | Mode: ${failOnRegression ? 'Strict (blocking)' : 'Advisory (non-blocking)'} | Runner: GitHub Actions*\n`;
 
     try {
         fs.appendFileSync(summaryPath, md, 'utf-8');
@@ -287,8 +306,8 @@ async function main(): Promise<void> {
         args.minLatencyNoiseNs
     );
 
-    printConsoleReport(rows, regressions, args.thresholdPct);
-    writeGitHubSummary(rows, regressions, args.thresholdPct);
+    printConsoleReport(rows, regressions, args.thresholdPct, args.failOnRegression);
+    writeGitHubSummary(rows, regressions, args.thresholdPct, args.failOnRegression);
 
     if (regressions.length > 0 && args.failOnRegression) {
         process.exit(1);

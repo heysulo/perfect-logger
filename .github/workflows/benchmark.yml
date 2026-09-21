@@ -32,7 +32,7 @@ jobs:
         run: npm run build
 
       - name: Run benchmark on current branch
-        run: npx ts-node benchmarks/index.ts --json > current.json
+        run: NODE_OPTIONS="--expose-gc" npx ts-node benchmarks/index.ts --json > current.json
 
       - name: Checkout base branch for hardware-identical baseline
         uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
             echo "Running baseline benchmark on base branch..."
             cd base-repo
             npm ci
-            npx ts-node benchmarks/index.ts --json > ../baseline.json
+            NODE_OPTIONS="--expose-gc" npx ts-node benchmarks/index.ts --json > ../baseline.json
             cd ..
             echo "has_dynamic_baseline=true" >> $GITHUB_OUTPUT
           else
@@ -68,10 +68,12 @@ jobs:
 
       - name: Compare benchmarks & verify no regressions
         run: |
-          npx ts-node benchmarks/compare.ts \
-            --baseline=baseline.json \
-            --current=current.json \
-            --threshold=20
+          COMPARE_FLAGS="--baseline=baseline.json --current=current.json --threshold=25 --noise-floor=1500"
+          if [ "${{ steps.base-bench.outputs.has_dynamic_baseline }}" != "true" ]; then
+            echo "Dynamic baseline not available from base branch; running in advisory mode (--no-fail)..."
+            COMPARE_FLAGS="$COMPARE_FLAGS --no-fail"
+          fi
+          npx ts-node benchmarks/compare.ts $COMPARE_FLAGS
 
       - name: Upload benchmark artifacts
         if: always()

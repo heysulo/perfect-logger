@@ -97,6 +97,9 @@ async function main(): Promise<void> {
     const allResults: SuiteResult[] = [];
 
     for (const key of targetSuiteKeys) {
+        if (typeof (global as any).gc === 'function') {
+            (global as any).gc();
+        }
         const suiteFactory = suitesMap[key];
         const suite = suiteFactory();
         const result = await suite.run(cliArgs.filter);
