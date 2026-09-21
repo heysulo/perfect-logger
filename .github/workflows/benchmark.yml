@@ -1,0 +1,86 @@
+name: Performance Benchmarks & Regression Check
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-check:
+    name: Benchmark Regression Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current PR branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build current branch
+        run: npm run build
+
+      - name: Run benchmark on current branch
+        run: NODE_OPTIONS="--expose-gc" npx ts-node benchmarks/index.ts --json > current.json
+
+      - name: Checkout base branch for hardware-identical baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref || 'master' }}
+          path: base-repo
+        continue-on-error: true
+
+      - name: Generate baseline from base branch
+        id: base-bench
+        run: |
+          if [ -f "base-repo/benchmarks/index.ts" ]; then
+            echo "Running baseline benchmark on base branch..."
+            cd base-repo
+            npm ci
+            NODE_OPTIONS="--expose-gc" npx ts-node benchmarks/index.ts --json > ../baseline.json
+            cd ..
+            echo "has_dynamic_baseline=true" >> $GITHUB_OUTPUT
+          else
+            echo "Base branch has no benchmark suite yet; using repository baseline.json..."
+            cp benchmarks/baseline.json baseline.json
+            echo "has_dynamic_baseline=false" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: Fallback baseline if needed
+        if: steps.base-bench.outcome != 'success' || steps.base-bench.outputs.has_dynamic_baseline != 'true'
+        run: |
+          if [ ! -f "baseline.json" ]; then
+            echo "Using checked-in baseline.json"
+            cp benchmarks/baseline.json baseline.json
+          fi
+
+      - name: Compare benchmarks & verify no regressions
+        run: |
+          COMPARE_FLAGS="--baseline=baseline.json --current=current.json --threshold=25 --noise-floor=1500"
+          if [ "${{ steps.base-bench.outputs.has_dynamic_baseline }}" != "true" ]; then
+            echo "Dynamic baseline not available from base branch; running in advisory mode (--no-fail)..."
+            COMPARE_FLAGS="$COMPARE_FLAGS --no-fail"
+          fi
+          npx ts-node benchmarks/compare.ts $COMPARE_FLAGS
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            current.json
+            baseline.json
+          retention-days: 14
